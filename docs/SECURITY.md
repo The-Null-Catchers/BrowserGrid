@@ -33,7 +33,7 @@ User code can ignore proxy environment variables, but its bridge has no direct e
 
 ## Tenancy and credentials
 
-Every project, run and artifact route authorizes against persisted membership. API keys are bound to one workspace and require scopes in addition to the creator's current role. Owners/Admins can manage members and keys; Viewers cannot write. Platform administration has not been implemented and cannot be obtained through a workspace role.
+Every project, run and artifact route authorizes against persisted membership. Worker writes require a nonempty matching lease token and an active job; queued/terminal jobs cannot accept lease writes. Recovery clears the token before stale sessions can continue. PostgreSQL contention/fencing acceptance remains pending. API keys are bound to one workspace and require scopes in addition to the creator's current role. Owners/Admins can manage members and keys; Viewers cannot write. Platform administration has not been implemented and cannot be obtained through a workspace role.
 
 Passwords use Argon2. Opaque browser-session tokens are stored as SHA-256 digests; cookies are HTTP-only, SameSite=Lax, and Secure in HTTPS deployments. Cookie mutations require an allowed Origin. Login rotates the caller's existing session; logout revokes it. Redis write rate limits fail closed. CORS uses explicit configured origins.
 

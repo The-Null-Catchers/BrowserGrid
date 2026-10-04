@@ -4,7 +4,7 @@ Authoring date: 2026-10-04. This records executed checks, not expected results.
 
 | Check | Observed result |
 | --- | --- |
-| Python control-plane/security/scheduler/executor/worker unit suite | 123 passed; 1 PostgreSQL-specific test skipped |
+| Python control-plane/security/scheduler/executor/worker unit suite | 127 passed; 7 PostgreSQL-specific tests skipped |
 | Ruff lint and formatting | Passed |
 | Next.js TypeScript check | Passed |
 | Next.js production build | Passed, version 15.5.27 |
@@ -52,3 +52,11 @@ The full Python suite now includes runtime-output regressions for count and seri
 Node contract tests launch an actual child process that terminates itself with SIGTERM and verify exit status 143, instead of treating Node's null exit code as zero. This is a real process test, not a browser execution. BrowserGrid records normalized process exit events; the dashboard now subscribes to these and output-truncation events. Next.js type checking and production build were rerun successfully after this frontend change. Browser/dashboard E2E remains pending.
 
 Ordinary worker output is bounded to 10,000 events and 4 MiB of serialized event payloads per job. One truncation event is emitted; subsequent ordinary output is dropped. Forward-only lifecycle states, one runtime identity, one critical runtime error and one completion event remain available beyond that budget. Runtime metadata accepts only bounded browser version and the pinned Playwright version; it cannot overwrite worker/image/source metadata. Dependency advisory audits were not rerun because no dependency files changed.
+
+## Tenant scheduling and PostgreSQL acceptance follow-up
+
+Four additional local SQLite regressions cover oldest-job ordering across tenants, scheduling another tenant when one is at capacity, rejection of a queued job without a lease token, and recovered cancellation without a failure code. Acquisition locks one eligible workspace, rechecks capacity after locking and claims its earliest queued job. A savepoint handles concurrent registration of the same worker ID. Recovery handles one active workspace per transaction and does not lock empty workspaces.
+
+Seven PostgreSQL acceptance tests are now provided: atomic quota under six concurrent workers, skipping a separately locked workspace, acquisition lock scope, duplicate worker-ID registration, stale-session fencing after recovery, global oldest-job order and recovery lock scope. These seven tests were skipped locally because no PostgreSQL service/binaries are available. They must pass in the configured CI job before claiming these lock/race semantics are verified.
+
+PostgreSQL tests create and remove only a uniquely named `bg_test_...` schema per test, instead of dropping application tables. Test connections use statement and lock timeouts to fail contention problems rather than hang indefinitely. The CI database remains disposable. Runtime/web sources were unchanged in this follow-up, so their previously executed five Node contracts and production web build were not repeated.

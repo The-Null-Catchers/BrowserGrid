@@ -1,20 +1,52 @@
 from datetime import timedelta, timezone
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from browsergrid.config import settings
-from browsergrid.lifecycle import ACTIVE, TERMINAL, transition
+from browsergrid.lifecycle import ACTIVE, transition
 from browsergrid.models import Job, Run, Worker, Workspace, now, uid
 
 
 # Database is the durable queue. Redis only provides wake-up notifications.
 def acquire(db, worker_id):
-    # Skip busy workspace locks: independent tenants can schedule concurrently.
-    workspaces = db.scalars(
-        select(Workspace).order_by(Workspace.created_at).with_for_update(skip_locked=True)
-    ).all()
+    # Lock only one eligible tenant; ordering follows the oldest queued job.
+    oldest = (
+        select(func.min(Job.created_at))
+        .join(Run)
+        .where(
+            Job.workspace_id == Workspace.id,
+            Job.status == "queued",
+            Run.cancel_requested.is_(False),
+        )
+        .correlate(Workspace)
+        .scalar_subquery()
+    )
+    active_count = (
+        select(func.count())
+        .select_from(Job)
+        .where(Job.workspace_id == Workspace.id, Job.status.in_(ACTIVE))
+        .correlate(Workspace)
+        .scalar_subquery()
+    )
+    workspace = db.scalar(
+        select(Workspace)
+        .where(oldest.is_not(None), active_count < Workspace.concurrency)
+        .order_by(oldest, Workspace.created_at, Workspace.id)
+        .limit(1)
+        .with_for_update(skip_locked=True)
+    )
     worker = db.scalar(select(Worker).where(Worker.id == worker_id).with_for_update())
     if not worker:
-        worker = Worker(id=worker_id, version=settings().worker_version)
-        db.add(worker)
+        # Two processes may register the same ID before either commits. A savepoint
+        # handles the unique-key race without losing the workspace lock/transaction.
+        try:
+            with db.begin_nested():
+                worker = Worker(id=worker_id, version=settings().worker_version)
+                db.add(worker)
+                db.flush()
+        except IntegrityError:
+            worker = db.scalar(select(Worker).where(Worker.id == worker_id).with_for_update())
+            if worker is None:
+                raise
     worker.heartbeat_at = now()
     if worker.job_id:
         current = db.get(Job, worker.job_id)
@@ -22,14 +54,15 @@ def acquire(db, worker_id):
             db.commit()
             return None
         worker.job_id = None
-    for workspace in workspaces:
+    if workspace:
         active = db.scalar(
             select(func.count())
             .select_from(Job)
             .where(Job.workspace_id == workspace.id, Job.status.in_(ACTIVE))
         )
         if active >= workspace.concurrency:
-            continue
+            db.commit()
+            return None
         job = db.scalar(
             select(Job)
             .join(Run)
@@ -80,10 +113,22 @@ def heartbeat(db, worker_id, job_id=None, token=None):
 def recover(db):
     clock = now()
     cutoff = clock - timedelta(seconds=settings().lease_seconds)
-    # Same workspace locking order as acquire, cancellation, and worker writes.
-    for workspace in db.scalars(
-        select(Workspace).order_by(Workspace.created_at).with_for_update(skip_locked=True)
-    ):
+    # Recover one tenant per transaction, with the same lock order as worker writes.
+    # Empty tenants need no locks; a large sweep must not hold unrelated tenants.
+    workspace_ids = db.scalars(
+        select(Workspace.id)
+        .where(
+            select(Job.id).where(Job.workspace_id == Workspace.id, Job.status.in_(ACTIVE)).exists()
+        )
+        .order_by(Workspace.created_at, Workspace.id)
+    ).all()
+    for workspace_id in workspace_ids:
+        workspace = db.scalar(
+            select(Workspace).where(Workspace.id == workspace_id).with_for_update(skip_locked=True)
+        )
+        if workspace is None:
+            db.rollback()
+            continue
         jobs = db.scalars(
             select(Job)
             .where(Job.workspace_id == workspace.id, Job.status.in_(ACTIVE))
@@ -110,11 +155,13 @@ def recover(db):
                 if timed_out
                 else "infrastructure_failed"
             )
-            transition(db, job, status, "RUN_TIMEOUT" if timed_out else "WORKER_LOST")
+            error = None if status == "cancelled" else "RUN_TIMEOUT" if timed_out else "WORKER_LOST"
+            transition(db, job, status, error)
             job.lease_token = None
             worker = db.get(Worker, job.worker_id)
             if worker and worker.job_id == job.id:
                 worker.job_id = None
+        db.commit()
     db.commit()
 
 
@@ -124,6 +171,6 @@ def leased_job(db, job_id, token):
         raise RuntimeError("Unknown job")
     db.scalar(select(Workspace).where(Workspace.id == job.workspace_id).with_for_update())
     db.refresh(job)
-    if job.lease_token != token or job.status in TERMINAL:
+    if not token or not job.lease_token or job.lease_token != token or job.status not in ACTIVE:
         raise RuntimeError("Execution lease no longer valid")
     return job

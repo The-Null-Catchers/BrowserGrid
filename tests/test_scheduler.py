@@ -110,3 +110,53 @@ def test_worker_cannot_heartbeat_another_workers_lease(db):
     assert not heartbeat(db, "other-worker", jid, token)
     db.refresh(db.get(Job, jid))
     assert db.get(Job, jid).heartbeat_at == before
+
+
+def test_queued_job_has_no_valid_lease(db):
+    run = seed(db, n=1)
+    from sqlalchemy import select
+
+    job = db.scalar(select(Job).where(Job.run_id == run.id))
+    with pytest.raises(RuntimeError, match="lease"):
+        leased_job(db, job.id, None)
+    db.rollback()
+
+
+def test_acquisition_prioritizes_oldest_job_across_workspaces(db):
+    from sqlalchemy import select
+
+    older_workspace_run = seed(db, n=1)
+    # Each tenant has its own users; avoid seed's unique email collision.
+    db.get(User, older_workspace_run.actor_id).email = "first-tenant@example.test"
+    db.commit()
+    newer_workspace_run = seed(db, n=1)
+    earlier_job = db.scalar(select(Job).where(Job.run_id == newer_workspace_run.id))
+    later_job = db.scalar(select(Job).where(Job.run_id == older_workspace_run.id))
+    earlier_job.created_at = now() - timedelta(minutes=2)
+    later_job.created_at = now() - timedelta(minutes=1)
+    db.commit()
+    assert acquire(db, "ordered-worker")[0] == earlier_job.id
+
+
+def test_busy_workspace_does_not_block_another_tenant(db):
+    first = seed(db, n=2, concurrency=1)
+    db.get(User, first.actor_id).email = "first-tenant@example.test"
+    db.commit()
+    second = seed(db, n=1)
+    first_claim = acquire(db, "first-worker")
+    assert db.get(Job, first_claim[0]).run_id == first.id
+    second_claim = acquire(db, "second-worker")
+    assert db.get(Job, second_claim[0]).run_id == second.id
+
+
+def test_recovered_cancellation_has_no_failure_code(db):
+    run = seed(db, n=1)
+    jid, token = acquire(db, "cancelled-worker")
+    run.cancel_requested = True
+    db.get(Job, jid).heartbeat_at = now() - timedelta(minutes=2)
+    db.commit()
+    recover(db)
+    assert db.get(Job, jid).status == "cancelled"
+    assert db.get(Job, jid).error_code is None
+    assert db.get(Job, jid).lease_token is None
+    assert db.get(Worker, "cancelled-worker").job_id is None

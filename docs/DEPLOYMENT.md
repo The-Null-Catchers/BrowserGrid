@@ -29,7 +29,7 @@ The trusted worker in local Compose mounts the Docker socket. The API/web do not
 
 Set `BG_DATABASE_URL` and `BG_REDIS_URL` in a deployment override. The supplied Compose file explicitly constructs these settings for its local services, so override their entries in API, worker, scheduler and init service environments, not just `.env`. Use TLS/private networking and least-privilege database accounts appropriate to each component.
 
-Run Alembic upgrade before starting the new API. Migration downgrade is a development rollback aid, not a replacement for backups. Clean PostgreSQL migration and row-lock contention checks are release gates; SQLite validation alone is insufficient.
+Run Alembic upgrade before starting the new API. Migration downgrade is a development rollback aid, not a replacement for backups. Clean PostgreSQL migration and row-lock contention checks are release gates; SQLite validation alone is insufficient. The seven PostgreSQL acceptance cases use uniquely named temporary schemas; their CI database role needs CREATE schema permission. Set BG_TEST_DATABASE_URL only for a dedicated test database, never an application production connection.
 
 ## S3 / R2
 

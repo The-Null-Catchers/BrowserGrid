@@ -32,11 +32,11 @@ The authoritative transition map also allows cancellation, timeout and infrastru
 
 ## Concurrency and leases
 
-Creation locks the workspace row before enforcing the daily job quota and inserting matrix jobs. Acquisition locks workspace rows with `FOR UPDATE SKIP LOCKED`, counts active jobs and takes an ordered queued job within its concurrency limit. Cancellation and worker result transitions use the same workspace locking boundary.
+Creation locks the workspace row before enforcing the daily job quota and inserting matrix jobs. Acquisition orders eligible workspaces by their oldest queued job, locks one workspace with `FOR UPDATE SKIP LOCKED`, rechecks active-job capacity and takes its earliest queued job. Busy/locked tenants do not need to block unrelated claims. Worker registration handles unique-ID races inside a savepoint; an ID assigned to an active job cannot claim another. Recovery locks one active tenant per transaction and releases its lock before the next tenant. Cancellation and worker result transitions use the same workspace locking boundary.
 
 A job receives a random lease token. Workers heartbeat every three seconds; the scheduler expires leases after 45 seconds. Result writes recheck the lease. A worker that loses its lease cannot overwrite the recovery decision. Worker loss currently becomes `infrastructure_failed` rather than being automatically retried; user-level Playwright retries remain visible in test results.
 
-SQLite tests check state logic but cannot establish PostgreSQL lock semantics. A separate PostgreSQL contention test is provided and is a required acceptance gate.
+SQLite tests check state logic but cannot establish PostgreSQL lock semantics. Seven isolated-schema PostgreSQL contention/fencing tests are provided and form a required acceptance gate.
 
 ## Execution plane
 
