@@ -4,6 +4,21 @@ from browsergrid.execution.output import RuntimeOutput
 from browsergrid.security import Redactor
 
 
+def test_long_setup_error_keeps_diagnostic_tail_and_redacts_before_truncation():
+    output = RuntimeOutput(Redactor(["private-token"]))
+    text = (
+        "Launch failed private-token\n" + "arguments " * 2000 + "\nNo usable sandbox private-token"
+    )
+    kind, event = output.prepare(
+        "@bg:" + json.dumps({"kind": "error", "code": "BROWSER_LAUNCH_FAILED", "message": text})
+    )
+    assert kind == "error"
+    assert len(event["message"]) <= 4096
+    assert event["message"].startswith("Launch failed [REDACTED]")
+    assert event["message"].endswith("No usable sandbox [REDACTED]")
+    assert "private-token" not in event["message"]
+
+
 def test_log_budget_counts_serialized_utf8_and_redacted_output():
     output = RuntimeOutput(Redactor(["secret"]), max_bytes=50)
     assert output.prepare("secret") == ("log", {"message": "[REDACTED]"})

@@ -12,6 +12,14 @@ SETUP_ERRORS = {
 }
 
 
+def error_summary(message, redactor):
+    text = redactor.text(message) if isinstance(message, str) else ""
+    if len(text) <= 4096:
+        return text
+    # Browser launch errors include huge argument lists before the useful stderr.
+    return text[:1500] + "\n[... message truncated ...]\n" + text[-2500:]
+
+
 class RuntimeOutput:
     def __init__(self, redactor, *, max_events=10000, max_bytes=4 * 1024 * 1024):
         self.redactor = redactor
@@ -57,9 +65,7 @@ class RuntimeOutput:
                 message = payload.get("message")
                 data = {
                     "code": code,
-                    "message": self.redactor.text(message)[:1000]
-                    if isinstance(message, str)
-                    else "",
+                    "message": error_summary(message, self.redactor),
                 }
                 signal = payload.get("signal")
                 if isinstance(signal, str):
