@@ -4,12 +4,12 @@ Authoring date: 2026-10-04. This records executed checks, not expected results.
 
 | Check | Observed result |
 | --- | --- |
-| Python control-plane/security/scheduler/executor/worker unit suite | 127 passed; 7 PostgreSQL-specific tests skipped |
+| Python control-plane/security/scheduler/executor/worker unit suite | 139 passed; 7 PostgreSQL-specific tests skipped |
 | Ruff lint and formatting | Passed |
 | Next.js TypeScript check | Passed |
 | Next.js production build | Passed, version 15.5.27 |
 | API schema and Compose/workflow configuration syntax | Python/JSON/YAML syntax validated |
-| Alembic on a clean SQLite database | Upgrade to head and downgrade to base passed; legacy artifact migration preserves readiness |
+| Alembic on a clean SQLite database | Upgrade to head and downgrade to base passed; legacy artifact/source migrations preserve readiness |
 | Python dependency audit against pinned lockfile | No known vulnerabilities reported by pip-audit |
 | Web/runtime npm production dependency audit | Zero vulnerabilities reported after compatible patch/override updates |
 | JavaScript runtime/reporter/SDK/fixture syntax | Passed |
@@ -60,3 +60,11 @@ Four additional local SQLite regressions cover oldest-job ordering across tenant
 Seven PostgreSQL acceptance tests are now provided: atomic quota under six concurrent workers, skipping a separately locked workspace, acquisition lock scope, duplicate worker-ID registration, stale-session fencing after recovery, global oldest-job order and recovery lock scope. These seven tests were skipped locally because no PostgreSQL service/binaries are available. They must pass in the configured CI job before claiming these lock/race semantics are verified.
 
 PostgreSQL tests create and remove only a uniquely named `bg_test_...` schema per test, instead of dropping application tables. Test connections use statement and lock timeouts to fail contention problems rather than hang indefinitely. The CI database remains disposable. Runtime/web sources were unchanged in this follow-up, so their previously executed five Node contracts and production web build were not repeated.
+
+## Uploaded-source reservation follow-up
+
+Twelve additional local regressions cover a durable source reservation before object writes, successful readiness acknowledgment, lost upload responses with generic 503 errors, denial of pending sources, expiry/removal before completion, ZIP rejection before reservation, Viewer/cross-workspace/read-only API-key upload denial, cross-project source denial, retryable pending cleanup with ready-source preservation, migration compatibility/reversal and worker rejection of unready sources before storage access.
+
+Migration 0003 adds indexed reservation expiry and source readiness. Historical bundles become ready with no expiry; new uploads remain pending for up to one hour until object storage acknowledges success. Cleanup deletes abandoned objects before their pending rows. Successful source objects are retained for reruns; project lifecycle deletion remains unfinished.
+
+The real Docker smoke script now also uploads a ZIP with the pinned Playwright lockfile, runs it in Chromium through the repository-local CLI and instrumented fixture, checks an individual test result and downloads a PNG screenshot with its signature. This added source path has not been executed locally. SQLite migration upgrades/downgrades and legacy-row compatibility were executed; PostgreSQL migration and real S3/Docker acceptance remain pending CI. No runtime/web dependencies or frontend source changed in this follow-up.

@@ -107,6 +107,8 @@ def execute(backend, worker_id, job_id, token):
             source = config["source"]
             if source["type"] == "bundle":
                 bundle = db.get(Bundle, source["bundle_id"])
+                if not bundle or not bundle.ready or bundle.project_id != run.project_id:
+                    raise ValueError("Bundle source unavailable")
                 files = {
                     f"source/{name}": data
                     for name, data in validate_bundle(storage.get(bundle.key)).items()

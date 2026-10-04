@@ -348,3 +348,25 @@ def test_interrupted_process_cannot_pass_with_passing_report(db, monkeypatch):
     execute(backend, "worker-unit", jid, token)
     db.expire_all()
     assert db.get(Run, rid).status == "failed"
+
+
+def test_worker_rejects_unready_bundle_before_storage_access(db, monkeypatch):
+    import browsergrid.worker as worker
+    from browsergrid.models import Bundle
+    from unittest.mock import Mock
+
+    rid, jid, token = prepare(db, monkeypatch)
+    run = db.get(Run, rid)
+    bundle = Bundle(project_id=run.project_id, key="pending/source.zip", size=1, ready=False)
+    db.add(bundle)
+    db.flush()
+    run.config = {**run.config, "source": {"type": "bundle", "bundle_id": bundle.id}}
+    db.commit()
+    read = Mock()
+    monkeypatch.setattr(worker.storage, "get", read)
+    backend = Backend()
+    execute(backend, "worker-unit", jid, token)
+    read.assert_not_called()
+    db.expire_all()
+    assert db.get(Run, rid).status == "infrastructure_failed"
+    assert not backend.collected

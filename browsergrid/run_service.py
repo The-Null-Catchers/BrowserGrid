@@ -18,7 +18,7 @@ def enqueue_run(db, project, p, data, idempotency_key):
         raise RunCreationError(422, "Matrix exceeds job limit")
     if config["source"]["type"] == "bundle":
         bundle = db.get(Bundle, config["source"]["bundle_id"])
-        if not bundle or bundle.project_id != project.id:
+        if not bundle or bundle.project_id != project.id or not bundle.ready:
             raise RunCreationError(404, "Bundle not found")
     request_hash = digest(json.dumps(data.model_dump(), sort_keys=True))
     if idempotency_key and len(idempotency_key) > 128:

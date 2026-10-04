@@ -1,6 +1,9 @@
 """Runs the actual API -> DB queue -> Docker worker -> browser -> S3 path. No mocks."""
 
 import json
+import io
+import zipfile
+from pathlib import Path
 import http.cookiejar
 import os
 import secrets
@@ -19,6 +22,25 @@ def request(path, data=None):
         BASE + path,
         data=json.dumps(data).encode() if data is not None else None,
         headers={"Content-Type": "application/json", "Origin": ORIGIN},
+    )
+    with client.open(req, timeout=30) as response:
+        return json.load(response)
+
+
+def upload_bundle(project_id, content):
+    boundary = "browsergrid-" + secrets.token_hex(16)
+    body = (
+        (
+            f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="suite.zip"\r\n'
+            "Content-Type: application/zip\r\n\r\n"
+        ).encode()
+        + content
+        + f"\r\n--{boundary}--\r\n".encode()
+    )
+    req = urllib.request.Request(
+        BASE + f"/api/v1/projects/{project_id}/bundles",
+        data=body,
+        headers={"Content-Type": f"multipart/form-data; boundary={boundary}", "Origin": ORIGIN},
     )
     with client.open(req, timeout=30) as response:
         return json.load(response)
@@ -73,6 +95,38 @@ for artifact in artifacts:
     link = request(f"/api/v1/artifacts/{artifact['id']}/download")
     with urllib.request.urlopen(link["url"], timeout=20) as response:
         assert response.read(1)
+# Real uploaded-source path: validated ZIP -> private storage -> worker/npm ci -> Chromium.
+root = Path(__file__).resolve().parents[2]
+buffer = io.BytesIO()
+with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+    for filename in ("package.json", "package-lock.json"):
+        archive.writestr(filename, (root / "runtimes" / filename).read_bytes())
+    archive.writestr(
+        "tests/uploaded.spec.ts", code.replace("@playwright/test", "@browsergrid/test")
+    )
+bundle = upload_bundle(project["id"], buffer.getvalue())
+uploaded_run = request(
+    "/api/v1/runs",
+    {
+        "project_id": project["id"],
+        "config": {
+            "source": {"type": "bundle", "bundle_id": bundle["id"]},
+            "screenshot": "on",
+            "video": "off",
+            "trace": "off",
+        },
+    },
+)
+uploaded_result = wait(uploaded_run["id"])
+assert uploaded_result["status"] == "passed", uploaded_result
+assert len(request(f"/api/v1/runs/{uploaded_run['id']}/tests")) == 1
+uploaded_artifacts = request(f"/api/v1/runs/{uploaded_run['id']}/artifacts?limit=100")
+shots = [artifact for artifact in uploaded_artifacts if artifact["kind"] == "screenshot"]
+assert shots, uploaded_artifacts
+link = request(f"/api/v1/artifacts/{shots[0]['id']}/download")
+with urllib.request.urlopen(link["url"], timeout=20) as response:
+    assert response.read(8) == b"\x89PNG\r\n\x1a\n"
+
 failed = request(
     "/api/v1/runs",
     {
@@ -131,4 +185,6 @@ for _ in range(20):
     time.sleep(0.5)
 else:
     raise AssertionError("Cancelled execution left its sandbox behind")
-print("Real browser matrix, artifacts, failure classification and cancellation passed.")
+print(
+    "Real browser matrix, uploaded bundle, artifacts, failure classification and cancellation passed."
+)

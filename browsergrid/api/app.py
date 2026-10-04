@@ -12,7 +12,7 @@ from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session as DBSession
 from redis import Redis
-from browsergrid import storage
+from browsergrid import storage, bundles
 from browsergrid.api.auth import authorize, browser_only, identity, issue_session, utc
 from browsergrid.config import settings
 from browsergrid.db import session, session_factory
@@ -21,7 +21,6 @@ from browsergrid.models import (
     ApiKey,
     Artifact,
     Audit,
-    Bundle,
     Event,
     Job,
     Member,
@@ -341,11 +340,15 @@ async def upload_bundle(
         await asyncio.to_thread(validate_bundle, data)
     except Exception as exc:
         raise HTTPException(422, "Invalid or unsafe ZIP bundle") from exc
-    bundle = Bundle(id=str(uuid.uuid4()), project_id=pid, size=len(data), key="")
-    bundle.key = f"bundles/{pid}/{bundle.id}.zip"
-    await asyncio.to_thread(storage.put, bundle.key, data, "application/zip")
-    db.add(bundle)
-    db.commit()
+    bundle = bundles.reserve(db, pid, len(data))
+    try:
+        await asyncio.to_thread(storage.put, bundle.key, data, "application/zip")
+    except Exception as exc:
+        raise HTTPException(503, "Bundle storage unavailable; retry the upload") from exc
+    try:
+        bundle = bundles.complete(db, bundle.id)
+    except bundles.BundleUploadExpired as exc:
+        raise HTTPException(409, "Upload expired; retry the upload") from exc
     return {"id": bundle.id, "size": bundle.size}
 
 

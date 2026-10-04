@@ -44,7 +44,7 @@ The API never evaluates uploaded or inline code. A trusted worker owns Docker ac
 
 - Inline Playwright tests: run within the sandbox, with automatic console/network instrumentation.
 - Public GitHub repositories: require an exact 40-character SHA, a committed `package-lock.json`, and `@playwright/test` version **1.58.2** matching the runtime image.
-- ZIP bundles: uploaded through the API, with path, expansion, symlink and size validation before execution. Include `package.json`, `package-lock.json` and `tests/`.
+- ZIP bundles: uploaded through the API, with path, expansion, symlink and size validation before execution. Include `package.json`, `package-lock.json` and `tests/`. Uploads reserve cleanup metadata first and become executable only after storage acknowledgment; failed reservations are cleaned after one hour.
 - Browser matrix: Chromium, Firefox and WebKit; up to four configurable viewports, up to 12 jobs per run.
 - Command is an argument array, not an API-server shell command. Default: pinned Playwright runner.
 - User Playwright config is loaded inside the sandbox, then matrix, reporter, output directory and BrowserGrid capture options are enforced.
@@ -115,7 +115,7 @@ make e2e
 
 Runtime contract checks: `cd runtimes && npm ci && node --test tests/*.test.cjs`. These verify actual test discovery without launching a browser.
 
-The real E2E script creates an account, workspace and project, runs the actual browser matrix, checks test reports and downloaded screenshot/video/trace files, exercises an intentional test failure and active-run cancellation with sandbox removal verification. It contains no browser mocks. The disposable network acceptance script adds positive-control host/DNAT canaries and metadata proxy denial; the recovery script tests worker loss and independent timeout enforcement. CI is configured to run these paths on a Docker-enabled Linux runner; the workflow has not been run remotely yet.
+The real E2E script creates an account, workspace and project, runs the actual browser matrix, checks test reports and downloaded screenshot/video/trace files, uploads and executes a ZIP bundle with a verified PNG artifact, exercises an intentional test failure and active-run cancellation with sandbox removal verification. It contains no browser mocks. The disposable network acceptance script adds positive-control host/DNAT canaries and metadata proxy denial; the recovery script tests worker loss and independent timeout enforcement. CI is configured to run these paths on a Docker-enabled Linux runner; the workflow has not been run remotely yet.
 
 Do not mark phase 2 complete until the real Docker E2E passes. Do not expose this early implementation to hostile users; the roadmap separates implemented paths from remaining production requirements.
 

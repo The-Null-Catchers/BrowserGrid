@@ -168,6 +168,8 @@ class Bundle(Base):
     project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"))
     key: Mapped[str] = mapped_column(String(500))
     size: Mapped[int] = mapped_column(Integer)
+    ready: Mapped[bool] = mapped_column(Boolean, default=False, server_default="true")
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
 
 
 class Worker(Base):
