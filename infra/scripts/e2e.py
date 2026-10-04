@@ -56,6 +56,33 @@ def wait(rid):
     raise AssertionError("Execution never completed")
 
 
+def verify_browser_logs(run_detail, artifacts):
+    observed_console, observed_network = set(), set()
+    for artifact in artifacts:
+        name = artifact["name"]
+        if not name.endswith(("console.json", "network.json")):
+            continue
+        link = request(f"/api/v1/artifacts/{artifact['id']}/download")
+        with urllib.request.urlopen(link["url"], timeout=20) as response:
+            data = response.read(8 * 1024 * 1024 + 1)
+        assert len(data) <= 8 * 1024 * 1024
+        events = json.loads(data)
+        assert isinstance(events, list)
+        if name.endswith("console.json"):
+            assert any(row.get("message") == "browsergrid capture smoke" for row in events), events
+            observed_console.add(artifact["job_id"])
+        else:
+            assert any(
+                row.get("url") == "http://fixture-app:8080/api/data"
+                and row.get("status") == 200
+                and row.get("resource_type") == "fetch"
+                for row in events
+            ), events
+            observed_network.add(artifact["job_id"])
+    jobs = {job["id"] for job in run_detail["jobs"]}
+    assert observed_console == jobs and observed_network == jobs
+
+
 for _ in range(120):
     try:
         request("/ready")
@@ -70,7 +97,7 @@ request(
 )
 workspace = request("/api/v1/workspaces", {"name": "Real execution smoke"})
 project = request(f"/api/v1/workspaces/{workspace['id']}/projects", {"name": "Fixture"})
-code = 'import { test, expect } from "@playwright/test"; test("real fixture", async ({page}) => { await page.goto("http://fixture-app:8080"); await expect(page.getByRole("heading",{name:"BrowserGrid Fixture"})).toBeVisible(); });'
+code = 'import { test, expect } from "@playwright/test"; test("real fixture", async ({page}) => { await page.goto("http://fixture-app:8080"); await expect(page.getByRole("heading",{name:"BrowserGrid Fixture"})).toBeVisible(); await page.evaluate(()=>console.log("browsergrid capture smoke")); await page.getByRole("button",{name:"Load data"}).click(); await expect(page.locator("#data")).toHaveText("Network request complete"); });'
 run = request(
     "/api/v1/runs",
     {
@@ -91,6 +118,7 @@ assert all(j["runtime"].get("browser_version") for j in result["jobs"]), result
 artifacts = request(f"/api/v1/runs/{run['id']}/artifacts?limit=100")
 assert {"screenshot", "video", "trace"} <= {a["kind"] for a in artifacts}, artifacts
 assert len(request(f"/api/v1/runs/{run['id']}/tests")) == 3
+verify_browser_logs(result, artifacts)
 for artifact in artifacts:
     link = request(f"/api/v1/artifacts/{artifact['id']}/download")
     with urllib.request.urlopen(link["url"], timeout=20) as response:
@@ -121,6 +149,7 @@ uploaded_result = wait(uploaded_run["id"])
 assert uploaded_result["status"] == "passed", uploaded_result
 assert len(request(f"/api/v1/runs/{uploaded_run['id']}/tests")) == 1
 uploaded_artifacts = request(f"/api/v1/runs/{uploaded_run['id']}/artifacts?limit=100")
+verify_browser_logs(uploaded_result, uploaded_artifacts)
 shots = [artifact for artifact in uploaded_artifacts if artifact["kind"] == "screenshot"]
 assert shots, uploaded_artifacts
 link = request(f"/api/v1/artifacts/{shots[0]['id']}/download")

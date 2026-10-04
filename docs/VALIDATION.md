@@ -13,7 +13,7 @@ Authoring date: 2026-10-04. This records executed checks, not expected results.
 | Python dependency audit against pinned lockfile | No known vulnerabilities reported by pip-audit |
 | Web/runtime npm production dependency audit | Zero vulnerabilities reported after compatible patch/override updates |
 | JavaScript runtime/reporter/SDK/fixture syntax | Passed |
-| Node runtime contracts | 5 passed; includes real repository test discovery with a separate Playwright installation and a real SIGTERM child-process regression |
+| Node runtime/SDK contracts | 16 passed; includes repository test discovery with a separate Playwright installation, a real SIGTERM child process and bounded console/network capture regressions |
 | Clean PostgreSQL migration / concurrent acquisition | Not executed locally; dedicated CI job provided |
 | Docker image builds / Compose startup | Not executed: Docker unavailable and effective Linux capabilities are zero |
 | Real Chromium/Firefox/WebKit E2E | Not executed: no Docker; attempted Chromium download produced a truncated/non-ZIP response |
@@ -68,3 +68,9 @@ Twelve additional local regressions cover a durable source reservation before ob
 Migration 0003 adds indexed reservation expiry and source readiness. Historical bundles become ready with no expiry; new uploads remain pending for up to one hour until object storage acknowledges success. Cleanup deletes abandoned objects before their pending rows. Successful source objects are retained for reruns; project lifecycle deletion remains unfinished.
 
 The real Docker smoke script now also uploads a ZIP with the pinned Playwright lockfile, runs it in Chromium through the repository-local CLI and instrumented fixture, checks an individual test result and downloads a PNG screenshot with its signature. This added source path has not been executed locally. SQLite migration upgrades/downgrades and legacy-row compatibility were executed; PostgreSQL migration and real S3/Docker acceptance remain pending CI. No runtime/web dependencies or frontend source changed in this follow-up.
+
+## Console and network capture follow-up
+
+Eleven additional SDK regressions cover delayed response metadata, bounded draining of stalled reads, immutable completed snapshots, failed and still-active requests, concurrent request limits, duplicate terminal events, preserved unrelated listeners, sanitized URLs, console bounds, preserved HTTP status after a size-read error, and writing actual JSON attachments when the test body fails. The full Node suite passed all 16 tests. Capture tests use event/request doubles; they do not establish actual browser capture. Ruff lint/format, JavaScript syntax and diff whitespace checks passed.
+
+The real Docker smoke script now asserts a known console message and a successful fixture fetch in downloaded JSON artifacts for every matrix job and the uploaded-bundle job. This acceptance remains unexecuted. The collector stops its listeners before a two-second metadata drain, marks unfinished records explicitly and bounds console/network records to 1,000 each. No dependencies or frontend source changed; their previous audits/build were not repeated.

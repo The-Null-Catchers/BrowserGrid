@@ -58,7 +58,7 @@ For bundle/repository console and network collection, import the instrumented fi
 import { test, expect } from "@browsergrid/test";
 ```
 
-BrowserGrid injects this module in the sandbox. For local authoring, use the package in `packages/browser-sdk` with a matching Playwright installation. Standard `@playwright/test` tests still collect Playwright screenshots, video and traces, but do not automatically use the instrumented page fixture. Query strings and request bodies are omitted from network metadata.
+BrowserGrid injects this module in the sandbox. For local authoring, use the package in `packages/browser-sdk` with a matching Playwright installation. Standard `@playwright/test` tests still collect Playwright screenshots, video and traces, but do not automatically use the instrumented page fixture. Captured URLs omit credentials, query strings and fragments; request bodies are not collected. Teardown waits up to two seconds for response metadata and explicitly marks unfinished requests. Console and network records are each bounded to 1,000 entries per test.
 
 ## API and CI
 
@@ -115,7 +115,7 @@ make e2e
 
 Runtime contract checks: `cd runtimes && npm ci && node --test tests/*.test.cjs`. These verify actual test discovery without launching a browser.
 
-The real E2E script creates an account, workspace and project, runs the actual browser matrix, checks test reports and downloaded screenshot/video/trace files, uploads and executes a ZIP bundle with a verified PNG artifact, exercises an intentional test failure and active-run cancellation with sandbox removal verification. It contains no browser mocks. The disposable network acceptance script adds positive-control host/DNAT canaries and metadata proxy denial; the recovery script tests worker loss and independent timeout enforcement. CI is configured to run these paths on a Docker-enabled Linux runner; the workflow has not been run remotely yet.
+The real E2E script creates an account, workspace and project, runs the actual browser matrix, checks test reports and downloaded screenshot/video/trace files, verifies console output and a successful fixture fetch for every matrix job, uploads and executes a ZIP bundle with verified PNG and log artifacts, exercises an intentional test failure and active-run cancellation with sandbox removal verification. It contains no browser mocks. The disposable network acceptance script adds positive-control host/DNAT canaries and metadata proxy denial; the recovery script tests worker loss and independent timeout enforcement. CI is configured to run these paths on a Docker-enabled Linux runner; the workflow has not been run remotely yet.
 
 Do not mark phase 2 complete until the real Docker E2E passes. Do not expose this early implementation to hostile users; the roadmap separates implemented paths from remaining production requirements.
 
