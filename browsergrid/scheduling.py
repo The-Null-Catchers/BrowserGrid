@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import timedelta, timezone
 from sqlalchemy import func, select
 from browsergrid.config import settings
 from browsergrid.lifecycle import ACTIVE, TERMINAL, transition
@@ -67,26 +67,39 @@ def heartbeat(db, worker_id, job_id=None, token=None):
 
 
 def recover(db):
-    cutoff = now() - timedelta(seconds=settings().lease_seconds)
+    clock = now()
+    cutoff = clock - timedelta(seconds=settings().lease_seconds)
     # Same workspace locking order as acquire, cancellation, and worker writes.
     for workspace in db.scalars(
         select(Workspace).order_by(Workspace.created_at).with_for_update(skip_locked=True)
     ):
         jobs = db.scalars(
             select(Job)
-            .where(
-                Job.workspace_id == workspace.id, Job.status.in_(ACTIVE), Job.heartbeat_at < cutoff
-            )
+            .where(Job.workspace_id == workspace.id, Job.status.in_(ACTIVE))
             .with_for_update(skip_locked=True)
         ).all()
         for job in jobs:
             run = db.get(Run, job.run_id)
-            transition(
-                db,
-                job,
-                "cancelled" if run.cancel_requested else "infrastructure_failed",
-                "WORKER_LOST",
+            started = job.started_at
+            heartbeat_at = job.heartbeat_at
+            if started and started.tzinfo is None:
+                started = started.replace(tzinfo=timezone.utc)
+            if heartbeat_at and heartbeat_at.tzinfo is None:
+                heartbeat_at = heartbeat_at.replace(tzinfo=timezone.utc)
+            timed_out = started and clock >= started + timedelta(
+                seconds=run.config.get("timeout_seconds", 900)
             )
+            stale = heartbeat_at is None or heartbeat_at < cutoff
+            if not timed_out and not stale:
+                continue
+            status = (
+                "cancelled"
+                if run.cancel_requested
+                else "timed_out"
+                if timed_out
+                else "infrastructure_failed"
+            )
+            transition(db, job, status, "RUN_TIMEOUT" if timed_out else "WORKER_LOST")
             job.lease_token = None
             worker = db.get(Worker, job.worker_id)
             if worker and worker.job_id == job.id:

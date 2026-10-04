@@ -1,6 +1,7 @@
 import io
 import json
 import tarfile
+import time
 from pathlib import Path, PurePosixPath
 import docker
 from browsergrid.config import settings
@@ -52,6 +53,10 @@ class DockerExecutionBackend(ExecutionBackend):
                 "browsergrid.sandbox": "true",
                 "browsergrid.job_id": spec.job_id,
                 "browsergrid.lease": spec.lease_token,
+                "browsergrid.deadline": str(
+                    spec.expires_at
+                    or (time.time() + min(900, spec.config.get("timeout_seconds", 900)))
+                ),
             },
             log_config=docker.types.LogConfig(
                 type="json-file", config={"max-size": "10m", "max-file": "1"}

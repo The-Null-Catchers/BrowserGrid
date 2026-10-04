@@ -44,9 +44,9 @@ The Docker backend creates a non-root sandbox on a dedicated internal bridge. A 
 
 Source files and configuration are copied through the Docker archive API, not bind-mounted from the host. Input files and parent directories are owned by UID 1000. A final readiness sentinel prevents the runtime from reading incomplete source input.
 
-The runtime fetches an exact public GitHub commit or consumes a validated ZIP, installs lockfile dependencies without install scripts, builds an enforced Playwright configuration, probes a real browser launch, and invokes the Playwright command. A custom reporter emits bounded structured timeline events. Test output and browser metadata are persisted by the trusted worker.
+The runtime fetches an exact public GitHub commit or consumes a validated ZIP, installs lockfile dependencies without install scripts, builds an enforced Playwright configuration, probes a real browser launch, and invokes the project-local Playwright command for repositories/bundles. The instrumentation fixture resolves that same physical dependency to avoid loading a second Playwright instance. A custom reporter emits bounded structured timeline events. Test output and browser metadata are persisted by the trusted worker.
 
-A completed sandbox stays alive until the worker retrieves artifacts: stopping the container first would unmount tmpfs and destroy its output. The worker removes it in a `finally` block. A periodic worker reaper removes labelled sandboxes whose database lease is terminal or invalid. After all workers stop, orphan cleanup requires another trusted worker/reaper to start; Docker does not itself enforce the wall timeout.
+A completed sandbox stays alive until the worker retrieves artifacts: stopping the container first would unmount tmpfs and destroy its output. The worker removes it in a `finally` block. A periodic worker reaper removes labelled sandboxes whose database lease is terminal or invalid. An independent engine watchdog removes containers at their deadline even if all workers stop. It has no network/database/storage access. The scheduler fences expired job deadlines separately from heartbeat-loss recovery.
 
 ## Artifacts and realtime
 
@@ -54,7 +54,7 @@ PostgreSQL holds artifact metadata; S3-compatible storage holds binary content. 
 
 SSE reads a bounded page of ordered events, closes each DB transaction before waiting, accepts cursor replay and rechecks tenant membership/session/key validity during streaming. The dashboard never fabricates execution records. Currently browser telemetry is stored as private JSON artifacts; the dashboard offers downloads rather than a full DevTools-style inspector.
 
-Retention deletes the remote object before deleting its metadata, so storage deletion failures remain retryable. General project/workspace deletion and an object orphan reconciliation pass are not implemented yet.
+Retention deletes the remote object before deleting its metadata, so storage deletion failures remain retryable. Uploads reserve hidden artifact metadata before writing objects; failed or interrupted uploads expire after one hour. Workspace locks are released during uploads, allowing cancellation to proceed. Completed artifacts become readable only after upload acknowledgment. General project/workspace deletion and a historical orphan reconciliation pass are not implemented yet.
 
 ## Scaling
 

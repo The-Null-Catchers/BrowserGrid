@@ -14,10 +14,10 @@ The container boundary reduces exposure; it is not a perfect hostile-code sandbo
 - Drop all capabilities; `no-new-privileges`; version-pinned upstream Playwright seccomp profile.
 - 2 CPU, 2 GiB RAM with equal swap limit, 256 PIDs.
 - 1 GiB `/work` tmpfs, 128 MiB `/tmp`, 256 MiB shared memory. These mounts also consume the memory allowance.
-- Worker-enforced timeout of 10–900 seconds, including installation/execution/artifact collection where checked.
+- Timeout of 10–900 seconds, checked by the worker and scheduler, with an independent Docker watchdog enforcing the sandbox wall deadline.
 - Internal Docker bridge without direct internet egress; only the egress proxy and local fixture are reachable on it.
 
-Docker wall deadlines are enforced by the trusted worker, not by a host watchdog. A crashed worker can leave a sandbox alive until lease recovery and another worker reaper run. An independent watchdog is a release requirement for adversarial use.
+The independent watchdog reads deadlines from Docker labels and removes expired sandboxes every two seconds without database access or worker liveness. It has engine access, no network, and no project/storage credentials. The scheduler also fences jobs at their authoritative deadline. Watchdog enforcement depends on the daemon, watchdog process and host clock remaining healthy; it is not a hypervisor guarantee. Real worker-crash and watchdog acceptance is supplied in `infra/scripts/recovery_e2e.py` but has not run in the authoring environment.
 
 The Playwright seccomp profile is copied from the upstream `v1.58.2` Docker utilities. User namespace availability and AppArmor compatibility must be validated on the destination kernel; do not resolve browser launch failures with `--privileged` or unconfined seccomp.
 
@@ -43,6 +43,6 @@ ZIP upload validation rejects absolute/traversal paths, symlinks, duplicate name
 
 ## Remaining release requirements
 
-Email verification and password reset, platform-admin auditing, independent sandbox watchdogs, comprehensive live SSRF escape tests, container-image vulnerability scans, upload/proxy ingress body limits, HTTPS deployment verification, lifecycle deletion/orphan reconciliation, distributed contention testing and external security review remain unfinished. Runtime/base images are version-pinned but not validated as free of OS vulnerabilities.
+Email verification and password reset, platform-admin auditing, live watchdog acceptance, comprehensive live SSRF escape tests, container-image vulnerability scans, upload/proxy ingress body limits, HTTPS deployment verification, lifecycle deletion/orphan reconciliation, distributed contention testing and external security review remain unfinished. Runtime/base images are version-pinned but not validated as free of OS vulnerabilities.
 
 The dashboard currently permits inline Next.js scripts in CSP; nonce-based CSP is a later hardening task. The API's documentation is intended for trusted local/admin access and requires a separately reviewed policy if publicly exposed.

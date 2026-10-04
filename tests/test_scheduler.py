@@ -72,3 +72,20 @@ def test_invalid_terminal_transition(db):
     transition(db, job, "cancelled")
     with pytest.raises(ValueError):
         transition(db, job, "running")
+
+
+def test_scheduler_expires_wall_deadline_with_fresh_heartbeat(db):
+    run = seed(db, n=1)
+    run.config = {"timeout_seconds": 10}
+    db.commit()
+    jid, token = acquire(db, "w1")
+    job = db.get(Job, jid)
+    job.started_at = now() - timedelta(seconds=20)
+    job.heartbeat_at = now()
+    db.commit()
+    recover(db)
+    assert job.status == "timed_out"
+    assert job.error_code == "RUN_TIMEOUT"
+    assert job.lease_token is None
+    with pytest.raises(RuntimeError):
+        leased_job(db, jid, token)

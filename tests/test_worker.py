@@ -135,3 +135,45 @@ def test_upload_failure_is_not_test_failure(db, monkeypatch):
     db.expire_all()
     assert db.get(Run, rid).status == "infrastructure_failed"
     assert backend.stopped
+
+
+def test_failed_upload_has_durable_hidden_cleanup_record(db, monkeypatch):
+    import browsergrid.worker as worker
+    from browsergrid.models import Artifact
+    from sqlalchemy import select
+
+    _, jid, token = prepare(db, monkeypatch)
+
+    def crash_after_upload(*args):
+        # Object may exist even when the upload response is lost.
+        raise OSError("simulated lost response")
+
+    monkeypatch.setattr(worker.storage, "put", crash_after_upload)
+    execute(Backend(), "worker-unit", jid, token)
+    db.expire_all()
+    artifact = db.scalar(select(Artifact).where(Artifact.job_id == jid))
+    assert artifact is not None and not artifact.ready
+    assert artifact.expires_at is not None
+
+
+def test_cancellation_can_be_persisted_during_upload(db, monkeypatch):
+    import browsergrid.worker as worker
+    from browsergrid.models import Artifact
+    from sqlalchemy import select
+
+    rid, jid, token = prepare(db, monkeypatch)
+
+    def cancel_during_upload(*args):
+        with worker.session_factory()() as other:
+            run = other.get(Run, rid)
+            run.cancel_requested = True
+            other.commit()
+
+    monkeypatch.setattr(worker.storage, "put", cancel_during_upload)
+    backend = Backend()
+    execute(backend, "worker-unit", jid, token)
+    db.expire_all()
+    assert db.get(Run, rid).status == "cancelled"
+    artifact = db.scalar(select(Artifact).where(Artifact.job_id == jid))
+    assert not artifact.ready
+    assert backend.stopped

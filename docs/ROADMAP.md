@@ -13,7 +13,7 @@ The requested product spans ten phases. This source delivery is the initial foun
 | 7. Quality | Fixture includes deterministic accessibility/visual/network cases | Axe scans, responsive URL mode and performance metrics not implemented |
 | 8. Visual testing | No fabricated baselines or diffs | Baselines, pixel comparison and approvals not implemented |
 | 9. Integrations | Scoped API keys, basic API-token CLI, run idempotency | GitHub Apps/webhooks/checks, webhook delivery, schedules not implemented |
-| 10. Production hardening | Initial quotas, ZIP/TAR controls, secret encryption, retention, health checks, CI files, docs | Full observability, watchdogs, deletion reconciliation and external validation pending |
+| 10. Production hardening | Initial quotas, ZIP/TAR controls, secret encryption, retention, health checks, independent watchdog, upload reservations, CI files, docs | Full observability, watchdog acceptance, deletion reconciliation and external validation pending |
 
 Other unfinished requirements include email verification/reset, invitation lifecycle and ownership transfer, persistent project configuration UI, platform-admin area, search and run comparison, dashboard analytics beyond recent-run summaries, embedded media/trace viewer, rich network filtering, in-app notifications and portfolio screenshots from verified runs.
 

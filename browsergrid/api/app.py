@@ -472,7 +472,7 @@ def artifacts(
         dump(a, "id job_id name kind size mime created_at")
         for a in db.scalars(
             select(Artifact)
-            .where(Artifact.run_id == rid)
+            .where(Artifact.run_id == rid, Artifact.ready.is_(True))
             .order_by(Artifact.created_at)
             .offset(offset)
             .limit(limit)
@@ -488,6 +488,8 @@ def artifact_download(aid: str, p=Depends(identity), db: DBSession = Depends(ses
     run_access(db, p, artifact.run_id, scope="artifacts:read")
     if artifact.expires_at and utc(artifact.expires_at) <= now():
         raise HTTPException(410, "Artifact expired")
+    if not artifact.ready:
+        raise HTTPException(409, "Artifact upload is not complete")
     return {"url": storage.signed(artifact.key, artifact.name), "expires_in": 120}
 
 

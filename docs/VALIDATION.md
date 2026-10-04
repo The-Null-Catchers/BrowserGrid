@@ -4,18 +4,20 @@ Authoring date: 2026-10-04. This records executed checks, not expected results.
 
 | Check | Observed result |
 | --- | --- |
-| Python control-plane/security/scheduler/executor/worker unit suite | 47 passed; 1 PostgreSQL-specific test skipped |
+| Python control-plane/security/scheduler/executor/worker unit suite | 59 passed; 1 PostgreSQL-specific test skipped |
 | Ruff lint and formatting | Passed |
 | Next.js TypeScript check | Passed |
 | Next.js production build | Passed, version 15.5.27 |
 | API schema and Compose/workflow configuration syntax | Python/JSON/YAML syntax validated |
-| Alembic on a clean SQLite database | Upgrade to head and downgrade to base passed |
+| Alembic on a clean SQLite database | Upgrade to head and downgrade to base passed; legacy artifact migration preserves readiness |
 | Python dependency audit against pinned lockfile | No known vulnerabilities reported by pip-audit |
 | Web/runtime npm production dependency audit | Zero vulnerabilities reported after compatible patch/override updates |
 | JavaScript runtime/reporter/SDK/fixture syntax | Passed |
+| Node runtime contracts | 3 passed; includes real repository test discovery with a separate Playwright installation |
 | Clean PostgreSQL migration / concurrent acquisition | Not executed locally; dedicated CI job provided |
 | Docker image builds / Compose startup | Not executed: Docker unavailable and effective Linux capabilities are zero |
 | Real Chromium/Firefox/WebKit E2E | Not executed: no Docker; attempted Chromium download produced a truncated/non-ZIP response |
+| Live worker-crash/watchdog recovery acceptance | Not executed; disposable-stack script and CI step provided |
 | Live sandbox/network escape tests | Not executed |
 | Container OS vulnerability scan | Not executed |
 | Dashboard browser/visual/accessibility QA | Not executed; build/type checks do not substitute for these |

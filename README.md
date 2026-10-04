@@ -113,6 +113,8 @@ make lint
 make e2e
 ```
 
+Runtime contract checks: `cd runtimes && npm ci && node --test tests/*.test.cjs`. These verify actual test discovery without launching a browser.
+
 The real E2E script creates an account, workspace and project, runs the actual browser matrix, checks test reports and downloaded screenshot/video/trace files, exercises an intentional test failure and cancellation. It contains no browser mocks. CI is configured to run this path on a Docker-enabled Linux runner; the workflow has not been run remotely yet.
 
 Do not mark phase 2 complete until the real Docker E2E passes. Do not expose this early implementation to hostile users; the roadmap separates implemented paths from remaining production requirements.

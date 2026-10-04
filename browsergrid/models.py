@@ -157,6 +157,7 @@ class Artifact(Base):
     kind: Mapped[str] = mapped_column(String(30))
     size: Mapped[int] = mapped_column(Integer)
     mime: Mapped[str] = mapped_column(String(100))
+    ready: Mapped[bool] = mapped_column(Boolean, default=False, server_default="true")
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
 

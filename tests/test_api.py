@@ -166,3 +166,25 @@ def test_artifact_cross_workspace_and_scope(client, account, db, monkeypatch):
         json={"email": "outside@example.test", "password": "outside-password-123"},
     )
     assert client.get(f"/api/v1/artifacts/{artifact.id}/download").status_code == 404
+
+
+def test_pending_artifacts_are_hidden_and_not_downloadable(client, account, db):
+    from browsergrid.models import Artifact
+
+    _, project = account
+    rid = client.post("/api/v1/runs", json=payload(project)).json()["id"]
+    job = db.scalar(select(Job).where(Job.run_id == rid))
+    artifact = Artifact(
+        run_id=rid,
+        job_id=job.id,
+        key="pending/object",
+        name="shot.png",
+        kind="screenshot",
+        size=20,
+        mime="image/png",
+        ready=False,
+    )
+    db.add(artifact)
+    db.commit()
+    assert client.get(f"/api/v1/runs/{rid}/artifacts").json() == []
+    assert client.get(f"/api/v1/artifacts/{artifact.id}/download").status_code == 409

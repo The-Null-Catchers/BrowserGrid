@@ -1,6 +1,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
+const { executionCommand, generatedConfigSource } = require('./config.cjs');
 const { chromium, firefox, webkit } = require('@playwright/test');
 const emit = (kind, data={}) => console.log('@bg:' + JSON.stringify({kind,...data}));
 const state = value => emit('state', {state:value});
@@ -36,7 +37,8 @@ async function command(args, cwd, env, code) {
     fs.writeFileSync('/work/source/tests/inline.spec.ts',code);
   }
   const cwd=path.resolve('/work/source',config.working_directory||'.');
-  if(!cwd.startsWith('/work/source'))throw new Error('Invalid working directory');
+  if(cwd!=='/work/source'&&!cwd.startsWith('/work/source/'))throw new Error('Invalid working directory');
+  env.BG_PROJECT_ROOT=cwd;
   state('installing_dependencies');
   if(source.type!=='inline'){
     if(!fs.existsSync(path.join(cwd,'package-lock.json')))throw new Error('Committed package-lock.json required');
@@ -65,9 +67,7 @@ async function command(args, cwd, env, code) {
   for(const name of ['playwright.config.ts','playwright.config.js','playwright.config.mjs','playwright.config.cjs']){
     if(fs.existsSync(path.join(cwd,name))){userConfig=path.join(cwd,name);break;}
   }
-  fs.writeFileSync(path.join(cwd,'browsergrid.config.ts'),
-    (userConfig?`import original from ${JSON.stringify(userConfig)};\n`:'const original = {};\n')+
-    `const enforced=${JSON.stringify(generated)};\nexport default {...original,...enforced,use:{...original.use,...enforced.use}};\n`);
+  fs.writeFileSync(path.join(cwd,'browsergrid.config.ts'),generatedConfigSource(userConfig,generated));
   state('starting_browser');
   // Verify launch now so a missing runtime is classified as infrastructure failure.
   const engine={chromium,firefox,webkit}[config.browser];
@@ -77,7 +77,7 @@ async function command(args, cwd, env, code) {
   emit('runtime',{data:{browser_version:browser.version(),playwright:require('@playwright/test/package.json').version}});
   await browser.close();
   state('running');
-  const args=[...config.command,'--config',path.join(cwd,'browsergrid.config.ts')];
+  const args=[...executionCommand(config.command,cwd,source.type==='inline'),'--config',path.join(cwd,'browsergrid.config.ts')];
   await new Promise((resolve,reject)=>{
     const child=spawn(args[0],args.slice(1),{cwd,env,stdio:'inherit'});
     child.on('error',reject);

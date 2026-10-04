@@ -1,4 +1,7 @@
-const base=require('@playwright/test');
+const {createRequire}=require('node:module');
+// Resolve the same physical Playwright installation as the project's test CLI.
+const projectRequire=process.env.BG_PROJECT_ROOT?createRequire(require('node:path').join(process.env.BG_PROJECT_ROOT,'package.json')):require;
+const base=projectRequire('@playwright/test');
 const fs=require('node:fs');
 const path=require('node:path');
 const test=base.test.extend({
@@ -6,9 +9,9 @@ const test=base.test.extend({
     const consoleEvents=[],networkEvents=[],timing=new Map();
     page.on('console',msg=>{if(consoleEvents.length<1000)consoleEvents.push({type:msg.type(),message:msg.text().slice(0,4000),source:msg.location(),timestamp:Date.now()});});
     page.on('pageerror',error=>{if(consoleEvents.length<1000)consoleEvents.push({type:'pageerror',message:error.message.slice(0,4000),timestamp:Date.now()});});
-    page.on('request',request=>timing.set(request,Date.now()));
+    page.on('request',request=>{if(timing.size<1000)timing.set(request,Date.now());});
     page.on('requestfinished',async request=>{
-      if(networkEvents.length>=1000)return;
+      if(networkEvents.length>=1000){timing.delete(request);return;}
       try{
         const response=await request.response();
         const url=new URL(request.url());url.search='';url.hash='';

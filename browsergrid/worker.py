@@ -10,6 +10,7 @@ from datetime import timedelta
 from redis import Redis
 from sqlalchemy import select
 from browsergrid import storage
+from browsergrid.api.auth import utc
 from browsergrid.config import settings
 from browsergrid.db import session_factory
 from browsergrid.execution.backend import ExecutionSpec
@@ -77,7 +78,8 @@ def execute(backend, worker_id, job_id, token):
             job = leased_job(db, job_id, token)
             run = db.get(Run, job.run_id)
             config = {**run.config, "browser": job.browser, "viewport": job.viewport}
-            deadline = time.monotonic() + config["timeout_seconds"]
+            remaining = config["timeout_seconds"] - (now() - utc(job.started_at)).total_seconds()
+            deadline = time.monotonic() + max(0, remaining)
             secrets = {
                 s.name: decrypt(s.ciphertext)
                 for s in db.scalars(select(Secret).where(Secret.project_id == run.project_id))
@@ -103,7 +105,16 @@ def execute(backend, worker_id, job_id, token):
         if cancelled.is_set() or shutdown.is_set():
             state(job_id, token, "cancelled")
             return
-        container = backend.create(ExecutionSpec(job_id, token, config, environment, files))
+        container = backend.create(
+            ExecutionSpec(
+                job_id,
+                token,
+                config,
+                environment,
+                files,
+                expires_at=time.time() + max(0, deadline - time.monotonic()),
+            )
+        )
         lines = queue.Queue(maxsize=1000)
 
         def read_logs():
@@ -222,39 +233,67 @@ def execute(backend, worker_id, job_id, token):
                 transition(db, job, "infrastructure_failed", "PLAYWRIGHT_CONFIGURATION_ERROR")
                 db.commit()
                 return
-            for name, data in artifacts.items():
-                if time.monotonic() > deadline:
-                    raise TimeoutError("Artifact upload deadline exceeded")
-                if name.endswith((".json", ".jsonl", ".txt", ".log")):
-                    data = redactor.text(data.decode(errors="replace")).encode()
-                aid = uid()
+            db.commit()
+        for name, data in artifacts.items():
+            if time.monotonic() > deadline:
+                raise TimeoutError("Artifact upload deadline exceeded")
+            if lost.is_set():
+                raise RuntimeError("Lease confirmation lost")
+            if name.endswith((".json", ".jsonl", ".txt", ".log")):
+                data = redactor.text(data.decode(errors="replace")).encode()
+            aid = uid()
+            mime = mimetypes.guess_type(name)[0] or "application/octet-stream"
+            kind = (
+                "screenshot"
+                if name.endswith(".png")
+                else "video"
+                if name.endswith(".webm")
+                else "trace"
+                if name.endswith(".zip")
+                else "report"
+                if name.endswith(".json")
+                else "log"
+            )
+            with session_factory()() as db:
+                job = leased_job(db, job_id, token)
+                if db.get(Run, job.run_id).cancel_requested:
+                    transition(db, job, "cancelled")
+                    db.commit()
+                    return
                 key = f"artifacts/{job.workspace_id}/{job.run_id}/{job.id}/{aid}"
-                mime = mimetypes.guess_type(name)[0] or "application/octet-stream"
-                kind = (
-                    "screenshot"
-                    if name.endswith(".png")
-                    else "video"
-                    if name.endswith(".webm")
-                    else "trace"
-                    if name.endswith(".zip")
-                    else "report"
-                    if name.endswith(".json")
-                    else "log"
-                )
-                storage.put(key, data, mime)
+                # Persist the object reservation BEFORE upload, so worker crashes cannot
+                # leave an uploaded object without cleanup metadata.
                 db.add(
                     Artifact(
                         id=aid,
                         run_id=job.run_id,
                         job_id=job.id,
                         key=key,
-                        name=name[:500],
+                        name=redactor.text(name)[:500],
                         kind=kind,
                         size=len(data),
                         mime=mime,
-                        expires_at=now() + timedelta(days=config["retention_days"]),
+                        ready=False,
+                        expires_at=now() + timedelta(hours=1),
                     )
                 )
+                db.commit()
+            # Never hold the workspace lock during an object-store network request.
+            storage.put(key, data, mime)
+            if time.monotonic() > deadline:
+                raise TimeoutError("Artifact upload deadline exceeded")
+            with session_factory()() as db:
+                job = leased_job(db, job_id, token)
+                if db.get(Run, job.run_id).cancel_requested:
+                    transition(db, job, "cancelled")
+                    db.commit()
+                    return
+                artifact = db.get(Artifact, aid)
+                artifact.ready = True
+                artifact.expires_at = now() + timedelta(days=config["retention_days"])
+                db.commit()
+        with session_factory()() as db:
+            job = leased_job(db, job_id, token)
             final = (
                 "failed"
                 if info.get("ExitCode") != 0
@@ -268,10 +307,18 @@ def execute(backend, worker_id, job_id, token):
             worker.completed += 1
             worker.job_id = None
             db.commit()
+    except TimeoutError:
+        try:
+            state(job_id, token, "timed_out", "RUN_TIMEOUT")
+        except Exception:
+            pass
     except Exception:
         log.exception("Execution failed job_id=%s worker_id=%s", job_id, worker_id)
         try:
-            state(job_id, token, "infrastructure_failed", "EXECUTION_INFRASTRUCTURE_ERROR")
+            if time.monotonic() >= deadline:
+                state(job_id, token, "timed_out", "RUN_TIMEOUT")
+            else:
+                state(job_id, token, "infrastructure_failed", "EXECUTION_INFRASTRUCTURE_ERROR")
         except Exception:
             pass  # Scheduler reconciles expired leases after outages.
     finally:

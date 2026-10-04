@@ -96,7 +96,19 @@ services:
       init: {condition: service_completed_successfully}
       runtime: {condition: service_completed_successfully}
       egress: {condition: service_started}
+      watchdog: {condition: service_started}
     stop_grace_period: 20s
+  watchdog:
+    build:
+      context: .
+      dockerfile: infra/docker/python.Dockerfile
+    image: browsergrid-control:0.1.0
+    user: root
+    command: [python, -m, browsergrid.watchdog]
+    network_mode: none
+    volumes: [/var/run/docker.sock:/var/run/docker.sock]
+    healthcheck: {disable: true}
+    restart: unless-stopped
   egress:
     build:
       context: .

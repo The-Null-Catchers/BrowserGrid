@@ -47,6 +47,14 @@ jobs:
         working-directory: apps/web
       - run: npm audit --omit=dev --audit-level=high
         working-directory: apps/web
+  runtime-contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm ci && node --test tests/*.test.cjs
+        working-directory: runtimes
   isolated-browser-e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 25
@@ -56,6 +64,7 @@ jobs:
         with: {python-version: '3.13'}
       - run: cp .env.example .env && docker compose up --build -d
       - run: python infra/scripts/e2e.py
+      - run: python infra/scripts/recovery_e2e.py --disposable-stack
       - if: always()
         run: docker compose logs --no-color > compose-e2e.log
       - if: always()

@@ -9,6 +9,7 @@ class ExecutionSpec:
     config: dict
     environment: dict
     files: dict[str, bytes]
+    expires_at: float | None = None
 
 
 class ExecutionBackend(ABC):

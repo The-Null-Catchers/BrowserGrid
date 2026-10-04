@@ -45,7 +45,7 @@ Create the bucket using a provisioning credential, then give workers narrowly sc
 - Start one trusted `python -m browsergrid.worker` process per desired simultaneous job; give each a unique `BG_WORKER_ID` when explicitly configured.
 - Provide protected access to the encryption key, PostgreSQL, Redis and object storage.
 - Respect workspace concurrency; increasing worker count does not bypass it.
-- Run reapers/watchdogs independently for recovery when a worker node fails. Cross-node watchdog supervision is not part of this initial release.
+- Run reapers/watchdogs independently for recovery when a worker node fails. The supplied `watchdog` service must run once per Docker engine; it uses labels and does not need shared files or control-plane credentials. Supervision across failed hosts remains the operator’s responsibility.
 
 For local scaling, `docker compose up --scale worker=2 -d` uses the same trusted daemon and bridge. Start small; the fixture's two-job concurrency can consume more than 4 GiB of total host memory, in addition to the database/web/storage services.
 
@@ -53,4 +53,6 @@ For local scaling, `docker compose up --scale worker=2 -d` uses the same trusted
 
 `/health` checks process liveness. `/ready` checks PostgreSQL, Redis and the configured S3 bucket. It does not claim that a browser worker is available. The worker page shows persisted heartbeat health to workspace Owners/Admins.
 
-The scheduler sweeps stale leases every five seconds and expired artifacts every minute. It deletes objects before removing their metadata, retrying storage failures. Prometheus/Grafana, OpenTelemetry and independent host watchdogs are not implemented; they remain on the release roadmap.
+The scheduler sweeps stale leases every five seconds and expired artifacts every minute. It deletes objects before removing their metadata, retrying storage failures. An independent Docker watchdog checks sandbox deadlines every two seconds. Prometheus/Grafana and OpenTelemetry remain on the release roadmap.
+
+For a **disposable test stack only**, run `python infra/scripts/recovery_e2e.py --disposable-stack` after the main E2E. This intentionally kills/stops the worker and verifies stale-lease recovery, reaping and watchdog-only timeout; it must not be run against an active shared deployment.
