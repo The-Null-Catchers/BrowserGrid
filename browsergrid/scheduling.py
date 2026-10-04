@@ -1,0 +1,105 @@
+from datetime import timedelta
+from sqlalchemy import func, select
+from browsergrid.config import settings
+from browsergrid.lifecycle import ACTIVE, TERMINAL, transition
+from browsergrid.models import Job, Run, Worker, Workspace, now, uid
+
+
+# Database is the durable queue. Redis only provides wake-up notifications.
+def acquire(db, worker_id):
+    # Skip busy workspace locks: independent tenants can schedule concurrently.
+    workspaces = db.scalars(
+        select(Workspace).order_by(Workspace.created_at).with_for_update(skip_locked=True)
+    ).all()
+    worker = db.get(Worker, worker_id)
+    if not worker:
+        worker = Worker(id=worker_id, version=settings().worker_version)
+        db.add(worker)
+    worker.heartbeat_at = now()
+    for workspace in workspaces:
+        active = db.scalar(
+            select(func.count())
+            .select_from(Job)
+            .where(Job.workspace_id == workspace.id, Job.status.in_(ACTIVE))
+        )
+        if active >= workspace.concurrency:
+            continue
+        job = db.scalar(
+            select(Job)
+            .join(Run)
+            .where(
+                Job.workspace_id == workspace.id,
+                Job.status == "queued",
+                Run.cancel_requested.is_(False),
+            )
+            .order_by(Job.created_at, Job.id)
+            .limit(1)
+            .with_for_update(skip_locked=True)
+        )
+        if job:
+            job.worker_id = worker_id
+            job.lease_token = uid()
+            job.heartbeat_at = now()
+            worker.job_id = job.id
+            transition(db, job, "preparing")
+            db.commit()
+            return job.id, job.lease_token
+    db.commit()
+    return None
+
+
+def heartbeat(db, worker_id, job_id=None, token=None):
+    worker = db.get(Worker, worker_id)
+    if worker:
+        worker.heartbeat_at = now()
+    if job_id:
+        job = db.get(Job, job_id)
+        if not job or job.lease_token != token or job.status in TERMINAL:
+            db.commit()
+            return False
+        job.heartbeat_at = now()
+        run = db.get(Run, job.run_id)
+        cancelled = run.cancel_requested
+        db.commit()
+        return not cancelled
+    db.commit()
+    return True
+
+
+def recover(db):
+    cutoff = now() - timedelta(seconds=settings().lease_seconds)
+    # Same workspace locking order as acquire, cancellation, and worker writes.
+    for workspace in db.scalars(
+        select(Workspace).order_by(Workspace.created_at).with_for_update(skip_locked=True)
+    ):
+        jobs = db.scalars(
+            select(Job)
+            .where(
+                Job.workspace_id == workspace.id, Job.status.in_(ACTIVE), Job.heartbeat_at < cutoff
+            )
+            .with_for_update(skip_locked=True)
+        ).all()
+        for job in jobs:
+            run = db.get(Run, job.run_id)
+            transition(
+                db,
+                job,
+                "cancelled" if run.cancel_requested else "infrastructure_failed",
+                "WORKER_LOST",
+            )
+            job.lease_token = None
+            worker = db.get(Worker, job.worker_id)
+            if worker and worker.job_id == job.id:
+                worker.job_id = None
+    db.commit()
+
+
+def leased_job(db, job_id, token):
+    job = db.get(Job, job_id)
+    if not job:
+        raise RuntimeError("Unknown job")
+    db.scalar(select(Workspace).where(Workspace.id == job.workspace_id).with_for_update())
+    db.refresh(job)
+    if job.lease_token != token or job.status in TERMINAL:
+        raise RuntimeError("Execution lease no longer valid")
+    return job
