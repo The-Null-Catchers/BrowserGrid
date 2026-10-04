@@ -11,11 +11,17 @@ def acquire(db, worker_id):
     workspaces = db.scalars(
         select(Workspace).order_by(Workspace.created_at).with_for_update(skip_locked=True)
     ).all()
-    worker = db.get(Worker, worker_id)
+    worker = db.scalar(select(Worker).where(Worker.id == worker_id).with_for_update())
     if not worker:
         worker = Worker(id=worker_id, version=settings().worker_version)
         db.add(worker)
     worker.heartbeat_at = now()
+    if worker.job_id:
+        current = db.get(Job, worker.job_id)
+        if current and current.status in ACTIVE:
+            db.commit()
+            return None
+        worker.job_id = None
     for workspace in workspaces:
         active = db.scalar(
             select(func.count())
@@ -49,21 +55,26 @@ def acquire(db, worker_id):
 
 
 def heartbeat(db, worker_id, job_id=None, token=None):
+    if job_id:
+        # Keep the same workspace -> job -> worker lock order as recovery/results.
+        # Updating the worker first could deadlock against recovery's job update.
+        try:
+            job = leased_job(db, job_id, token)
+        except RuntimeError:
+            db.rollback()
+            return False
+        if job.worker_id != worker_id:
+            db.rollback()
+            return False
+        job.heartbeat_at = now()
+        cancelled = db.get(Run, job.run_id).cancel_requested
+    else:
+        cancelled = False
     worker = db.get(Worker, worker_id)
     if worker:
         worker.heartbeat_at = now()
-    if job_id:
-        job = db.get(Job, job_id)
-        if not job or job.lease_token != token or job.status in TERMINAL:
-            db.commit()
-            return False
-        job.heartbeat_at = now()
-        run = db.get(Run, job.run_id)
-        cancelled = run.cancel_requested
-        db.commit()
-        return not cancelled
     db.commit()
-    return True
+    return not cancelled
 
 
 def recover(db):

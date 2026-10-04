@@ -44,7 +44,9 @@ def test_zip_symlink():
 
 def test_bundle():
     assert (
-        validate_bundle(archive({"package.json": "{}", "tests/test.ts": "test()"}))["package.json"]
+        validate_bundle(
+            archive({"package.json": "{}", "package-lock.json": "{}", "tests/test.ts": "test()"})
+        )["package.json"]
         == b"{}"
     )
 
@@ -72,3 +74,40 @@ def test_secret_storage_and_masking():
 )
 def test_private_ips(ip):
     assert not is_public_ip(ip)
+
+
+@pytest.mark.parametrize(
+    "path",
+    ["./package.json", "tests//alias.ts", "tests/./alias.ts", "C:/test.ts", "tests/" + ("x" * 256)],
+)
+def test_noncanonical_archive_paths_rejected(path):
+    with pytest.raises(ValueError):
+        validate_bundle(
+            archive(
+                {
+                    "package.json": "{}",
+                    "package-lock.json": "{}",
+                    "tests/test.ts": "test()",
+                    path: "x",
+                }
+            )
+        )
+
+
+def test_archive_file_directory_collision():
+    with pytest.raises(ValueError, match="collision"):
+        validate_bundle(
+            archive(
+                {
+                    "package.json": "{}",
+                    "package-lock.json": "{}",
+                    "tests/test.ts": "test()",
+                    "tests": "file",
+                }
+            )
+        )
+
+
+def test_bundle_requires_lockfile_before_enqueue():
+    with pytest.raises(ValueError, match="package-lock"):
+        validate_bundle(archive({"package.json": "{}", "tests/test.ts": "test()"}))

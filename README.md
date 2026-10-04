@@ -6,7 +6,7 @@ Self-hosted browser execution infrastructure: a FastAPI control plane, a transac
 
 ## Local setup
 
-Requirements: Linux x86_64, Docker Engine with Compose v2, supported user namespaces/seccomp, at least 8 GB RAM and 15 GB available disk. The daemon must support tmpfs, PID/memory/CPU limits and container init. Browser images are large.
+Requirements: Linux x86_64, Docker Engine with Compose v2, rootful Engine, host networking/NET_ADMIN and iptables/ip6tables, supported user namespaces/seccomp, at least 8 GB RAM and 15 GB available disk. The daemon must support tmpfs, PID/memory/CPU limits and container init. Browser images are large.
 
 ```bash
 cp .env.example .env
@@ -38,7 +38,7 @@ flowchart TD
   API --> Stream["SSE timeline"]
 ```
 
-The API never evaluates uploaded or inline code. A trusted worker owns Docker access; execution containers have no Docker socket, host mounts or control-plane credentials. Sandboxes run as UID 1000 with a read-only root filesystem, a dedicated internal network, a proxy that denies private destinations, seccomp, dropped capabilities and resource limits. See [security model](docs/SECURITY.md).
+The API never evaluates uploaded or inline code. A trusted worker owns Docker access; execution containers have no Docker socket, host mounts or control-plane credentials. Sandboxes run as UID 1000 with a read-only root filesystem, a dedicated internal network, a proxy that denies private destinations, a separate host firewall guard, seccomp, dropped capabilities and resource limits. See [security model](docs/SECURITY.md).
 
 ## Execution and sources
 
@@ -115,7 +115,7 @@ make e2e
 
 Runtime contract checks: `cd runtimes && npm ci && node --test tests/*.test.cjs`. These verify actual test discovery without launching a browser.
 
-The real E2E script creates an account, workspace and project, runs the actual browser matrix, checks test reports and downloaded screenshot/video/trace files, exercises an intentional test failure and cancellation. It contains no browser mocks. CI is configured to run this path on a Docker-enabled Linux runner; the workflow has not been run remotely yet.
+The real E2E script creates an account, workspace and project, runs the actual browser matrix, checks test reports and downloaded screenshot/video/trace files, exercises an intentional test failure and cancellation. It contains no browser mocks. The disposable network acceptance script adds positive-control host/DNAT canaries and metadata proxy denial; the recovery script tests worker loss and independent timeout enforcement. CI is configured to run these paths on a Docker-enabled Linux runner; the workflow has not been run remotely yet.
 
 Do not mark phase 2 complete until the real Docker E2E passes. Do not expose this early implementation to hostile users; the roadmap separates implemented paths from remaining production requirements.
 

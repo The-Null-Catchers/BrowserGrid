@@ -2,6 +2,7 @@ import hashlib
 import io
 import ipaddress
 import re
+import stat
 import zipfile
 from pathlib import PurePosixPath
 from cryptography.fernet import Fernet
@@ -84,6 +85,7 @@ def validate_bundle(data: bytes) -> dict[str, bytes]:
         raise ValueError("Archive too large")
     result = {}
     total = 0
+    seen = set()
     with zipfile.ZipFile(io.BytesIO(data)) as archive:
         if len(archive.infolist()) > 500:
             raise ValueError("Too many archive entries")
@@ -98,6 +100,20 @@ def validate_bundle(data: bytes) -> dict[str, bytes]:
                 or (mode & 0o170000) == 0o120000
             ):
                 raise ValueError("Unsafe archive path or symlink")
+            canonical = str(path)
+            expected = info.filename.rstrip("/") if info.is_dir() else info.filename
+            if not path.parts or canonical != expected or re.match(r"^[A-Za-z]:", canonical):
+                raise ValueError("Non-canonical archive path")
+            if len(canonical.encode()) > 500 or any(len(p.encode()) > 255 for p in path.parts):
+                raise ValueError("Archive path too long")
+            if canonical in seen:
+                raise ValueError("Duplicate archive entry")
+            seen.add(canonical)
+            file_type = stat.S_IFMT(mode)
+            if file_type not in {0, stat.S_IFREG, stat.S_IFDIR} or (
+                file_type == stat.S_IFDIR and not info.is_dir()
+            ):
+                raise ValueError("Archive special files rejected")
             if info.is_dir():
                 continue
             total += info.file_size
@@ -110,8 +126,13 @@ def validate_bundle(data: bytes) -> dict[str, bytes]:
             if info.filename in result or any(p in {"node_modules", ".git"} for p in path.parts):
                 raise ValueError("Duplicate or forbidden archive entry")
             result[info.filename] = archive.read(info)
-    if "package.json" not in result or not any(p.startswith("tests/") for p in result):
-        raise ValueError("Bundle requires package.json and tests/")
+    for name in result:
+        if any(str(parent) in result for parent in PurePosixPath(name).parents):
+            raise ValueError("Archive file/directory collision")
+    if not {"package.json", "package-lock.json"} <= result.keys() or not any(
+        p.startswith("tests/") for p in result
+    ):
+        raise ValueError("Bundle requires package.json, package-lock.json and tests/")
     return result
 
 

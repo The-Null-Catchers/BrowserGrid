@@ -89,3 +89,24 @@ def test_scheduler_expires_wall_deadline_with_fresh_heartbeat(db):
     assert job.lease_token is None
     with pytest.raises(RuntimeError):
         leased_job(db, jid, token)
+
+
+def test_duplicate_worker_id_does_not_claim_two_jobs(db):
+    seed(db, n=3, concurrency=3)
+    first = acquire(db, "same-worker")
+    assert first
+    assert acquire(db, "same-worker") is None
+    assert db.get(Worker, "same-worker").job_id == first[0]
+    transition(db, db.get(Job, first[0]), "cancelled")
+    db.commit()
+    second = acquire(db, "same-worker")
+    assert second and second[0] != first[0]
+
+
+def test_worker_cannot_heartbeat_another_workers_lease(db):
+    seed(db, n=1)
+    jid, token = acquire(db, "owner-worker")
+    before = db.get(Job, jid).heartbeat_at
+    assert not heartbeat(db, "other-worker", jid, token)
+    db.refresh(db.get(Job, jid))
+    assert db.get(Job, jid).heartbeat_at == before

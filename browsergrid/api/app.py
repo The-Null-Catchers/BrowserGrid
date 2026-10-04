@@ -338,8 +338,8 @@ async def upload_bundle(
     limit(request, "upload", 10)
     data = await file.read(settings().max_bundle_bytes + 1)
     try:
-        validate_bundle(data)
-    except (ValueError, Exception) as exc:
+        await asyncio.to_thread(validate_bundle, data)
+    except Exception as exc:
         raise HTTPException(422, "Invalid or unsafe ZIP bundle") from exc
     bundle = Bundle(id=str(uuid.uuid4()), project_id=pid, size=len(data), key="")
     bundle.key = f"bundles/{pid}/{bundle.id}.zip"

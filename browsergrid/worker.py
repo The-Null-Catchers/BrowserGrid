@@ -228,7 +228,18 @@ def execute(backend, worker_id, job_id, token):
             return
         with session_factory()() as db:
             job = leased_job(db, job_id, token)
-            tests, errors = persist_results(db, job_id, report, redactor)
+            try:
+                tests, errors = persist_results(db, job_id, report, redactor)
+            except (ValueError, RecursionError) as exc:
+                event(
+                    db,
+                    job,
+                    "error",
+                    {"code": "RESULT_REPORT_INVALID", "message": redactor.text(str(exc))},
+                )
+                transition(db, job, "infrastructure_failed", "RESULT_REPORT_INVALID")
+                db.commit()
+                return
             if not tests or errors:
                 transition(db, job, "infrastructure_failed", "PLAYWRIGHT_CONFIGURATION_ERROR")
                 db.commit()

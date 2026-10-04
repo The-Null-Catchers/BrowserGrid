@@ -177,3 +177,14 @@ def test_cancellation_can_be_persisted_during_upload(db, monkeypatch):
     artifact = db.scalar(select(Artifact).where(Artifact.job_id == jid))
     assert not artifact.ready
     assert backend.stopped
+
+
+def test_malformed_report_has_specific_infrastructure_error(db, monkeypatch):
+    rid, jid, token = prepare(db, monkeypatch)
+    backend = Backend()
+    backend.report = b'{"suites":["invalid suite"]}'
+    execute(backend, "worker-unit", jid, token)
+    db.expire_all()
+    assert db.get(Run, rid).status == "infrastructure_failed"
+    assert db.get(Job, jid).error_code == "RESULT_REPORT_INVALID"
+    assert backend.stopped

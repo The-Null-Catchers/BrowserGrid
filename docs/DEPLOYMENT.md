@@ -8,9 +8,9 @@ docker compose up --build -d
 python infra/scripts/e2e.py
 ```
 
-Inspect `docker compose logs api scheduler worker egress` if the E2E fails. Do not bypass seccomp, run sandboxes privileged or disable the network boundary to make the test pass. No production release is currently certified.
+Inspect `docker compose logs api scheduler worker egress network-guard` if the E2E fails. Do not bypass seccomp, run sandboxes privileged or disable the network boundary to make the test pass. No production release is currently certified.
 
-Docker Compose assumes Linux x86_64 and the fixed local sandbox subnet `172.30.0.0/24`. If that conflicts with your host networks, change the bridge subnet, fixture address and proxy fixture ACL together. Each sandbox has a unique ID label; no shared unsafe test filesystem is reused.
+Docker Compose requires rootful Linux Docker Engine with host networking, NET_ADMIN and usable iptables/ip6tables filter tables. Rootless Docker and Docker Desktop are not supported by this host-firewall model. It assumes Linux x86_64 and the fixed local sandbox subnet `172.30.0.0/24`. If that conflicts with your host networks, change the bridge subnet, fixture address and proxy fixture ACL together. The sandbox bridge has the explicit Linux interface name `bg-sandbox`; keep it aligned with `BG_SANDBOX_BRIDGE` in the guard. Do not reuse that interface for unrelated workloads. Each sandbox has a unique ID label; no shared unsafe test filesystem is reused.
 
 ## Single-server preparation
 
@@ -41,6 +41,7 @@ Create the bucket using a provisioning credential, then give workers narrowly sc
 
 - Build/pull `browsergrid-runtime:1.58.2` on each engine; deploy the exact image/tag with a recorded digest.
 - Create the node's internal sandbox bridge and a proxy with the same reviewed private-address deny policy.
+- Deploy the trusted host firewall guard on every execution host, aligned with its dedicated bridge name. Verify its IPv4/IPv6 rules and health before starting workers.
 - Ensure `BG_SANDBOX_NETWORK` and `BG_EGRESS_PROXY` match the node's local network.
 - Start one trusted `python -m browsergrid.worker` process per desired simultaneous job; give each a unique `BG_WORKER_ID` when explicitly configured.
 - Provide protected access to the encryption key, PostgreSQL, Redis and object storage.
@@ -56,3 +57,7 @@ For local scaling, `docker compose up --scale worker=2 -d` uses the same trusted
 The scheduler sweeps stale leases every five seconds and expired artifacts every minute. It deletes objects before removing their metadata, retrying storage failures. An independent Docker watchdog checks sandbox deadlines every two seconds. Prometheus/Grafana and OpenTelemetry remain on the release roadmap.
 
 For a **disposable test stack only**, run `python infra/scripts/recovery_e2e.py --disposable-stack` after the main E2E. This intentionally kills/stops the worker and verifies stale-lease recovery, reaping and watchdog-only timeout; it must not be run against an active shared deployment.
+
+For a **disposable Linux host only**, run `python infra/scripts/network_e2e.py --disposable-stack` after the main E2E. It temporarily starts a host HTTP canary and a container published on all host IPv4 interfaces; use an isolated CI machine, with the script and Docker engine on the same host. Cleanup removes the canary container and host listener.
+
+The guard never flushes host tables or removes its rules during shutdown. After stopping all sandboxes and removing the dedicated bridge, operators may remove the four exact `browsergrid-host` / `browsergrid-route` rules from INPUT/FORWARD in iptables/ip6tables. Their unmatched interface is otherwise inert. Never remove the rules while execution containers exist. Avoid other firewall tools overriding them and monitor the guard continuously; Compose dependency health gates startup only.

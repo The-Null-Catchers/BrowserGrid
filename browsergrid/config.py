@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     egress_proxy: str = "http://egress:3128"
     max_artifact_bytes: int = 100 * 1024 * 1024
     max_run_artifacts_bytes: int = 256 * 1024 * 1024
+    max_report_bytes: int = 5 * 1024 * 1024
     max_bundle_bytes: int = 10 * 1024 * 1024
     max_run_jobs: int = 12
     max_daily_jobs: int = 100

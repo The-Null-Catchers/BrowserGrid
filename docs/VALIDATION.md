@@ -4,7 +4,7 @@ Authoring date: 2026-10-04. This records executed checks, not expected results.
 
 | Check | Observed result |
 | --- | --- |
-| Python control-plane/security/scheduler/executor/worker unit suite | 59 passed; 1 PostgreSQL-specific test skipped |
+| Python control-plane/security/scheduler/executor/worker unit suite | 85 passed; 1 PostgreSQL-specific test skipped |
 | Ruff lint and formatting | Passed |
 | Next.js TypeScript check | Passed |
 | Next.js production build | Passed, version 15.5.27 |
@@ -18,7 +18,7 @@ Authoring date: 2026-10-04. This records executed checks, not expected results.
 | Docker image builds / Compose startup | Not executed: Docker unavailable and effective Linux capabilities are zero |
 | Real Chromium/Firefox/WebKit E2E | Not executed: no Docker; attempted Chromium download produced a truncated/non-ZIP response |
 | Live worker-crash/watchdog recovery acceptance | Not executed; disposable-stack script and CI step provided |
-| Live sandbox/network escape tests | Not executed |
+| Live sandbox/network escape tests | Not executed; positive-control host/DNAT/metadata acceptance script and CI step provided |
 | Container OS vulnerability scan | Not executed |
 | Dashboard browser/visual/accessibility QA | Not executed; build/type checks do not substitute for these |
 | GitHub CI / repository push | Not executed; no remote repository was supplied or created |
@@ -30,3 +30,9 @@ The local test environment used Python 3.12.14 and Node 24.19.0. Docker/CI targe
 One local warning remains: the installed Starlette TestClient warns that its httpx transport is deprecated. This did not fail the tests. No required live execution phase is certified complete.
 
 Dependency audits reflect their current advisory databases and do not guarantee absence of vulnerabilities. The web lockfile uses explicit patched overrides for transitive postcss/sharp dependencies; the production build was rechecked after updating them.
+
+## Execution integrity follow-up
+
+Additional executed regressions cover duplicate worker-ID acquisition, cross-worker lease heartbeat rejection, bounded/consistent Playwright report parsing (including expected failures and flaky retries), and ZIP canonical paths, file collisions and required lockfiles. Malformed reports receive `RESULT_REPORT_INVALID` instead of a passed result.
+
+Eight firewall guard unit cases cover IPv4/IPv6 host and cross-bridge deny rule construction, read-only health checks, failed installation, invalid interface names and restoration ahead of an earlier accept rule. These checks do not establish live packet filtering. The new guard image has not been built here. Previously executed web build and dependency audits were not repeated because web/dependency files did not change in this follow-up.

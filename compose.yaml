@@ -97,7 +97,24 @@ services:
       runtime: {condition: service_completed_successfully}
       egress: {condition: service_started}
       watchdog: {condition: service_started}
+      network-guard: {condition: service_healthy}
     stop_grace_period: 20s
+  network-guard:
+    build:
+      context: .
+      dockerfile: infra/docker/network-guard.Dockerfile
+    network_mode: host
+    environment:
+      BG_SANDBOX_BRIDGE: bg-sandbox
+    cap_drop: [ALL]
+    cap_add: [NET_ADMIN]
+    security_opt: ['no-new-privileges:true']
+    read_only: true
+    tmpfs: [/run]
+    mem_limit: 64m
+    cpus: 0.25
+    pids_limit: 32
+    restart: unless-stopped
   watchdog:
     build:
       context: .
@@ -146,6 +163,8 @@ networks:
   sandbox:
     name: browsergrid_sandbox
     internal: true
+    driver_opts:
+      com.docker.network.bridge.name: bg-sandbox
     ipam:
       config: [{subnet: 172.30.0.0/24}]
   egress: {}
