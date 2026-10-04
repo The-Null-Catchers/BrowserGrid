@@ -7,6 +7,7 @@ from pathlib import Path
 import http.cookiejar
 import os
 import secrets
+import struct
 import subprocess
 import time
 import urllib.request
@@ -102,6 +103,10 @@ request(
 workspace = request("/api/v1/workspaces", {"name": "Real execution smoke"})
 project = request(f"/api/v1/workspaces/{workspace['id']}/projects", {"name": "Fixture"})
 code = 'import { test, expect } from "@playwright/test"; test("real fixture", async ({page}) => { await page.goto("http://fixture-app:8080"); await expect(page.getByRole("heading",{name:"BrowserGrid Fixture"})).toBeVisible(); await page.evaluate(()=>console.log("browsergrid capture smoke")); await page.getByRole("button",{name:"Load data"}).click(); await expect(page.locator("#data")).toHaveText("Network request complete"); });'
+viewports = [
+    {"name": "desktop", "width": 1440, "height": 900},
+    {"name": "narrow", "width": 390, "height": 844},
+]
 run = request(
     "/api/v1/runs",
     {
@@ -109,6 +114,7 @@ run = request(
         "config": {
             "source": {"type": "inline", "code": code},
             "browsers": ["chromium", "firefox", "webkit"],
+            "viewports": viewports,
             "screenshot": "on",
             "trace": "on",
             "video": "on",
@@ -117,16 +123,36 @@ run = request(
 )
 result = wait(run["id"])
 assert result["status"] == "passed", result
-assert len(result["jobs"]) == 3
+assert len(result["jobs"]) == 6
+expected_matrix = {
+    (browser, viewport["width"], viewport["height"])
+    for browser in ("chromium", "firefox", "webkit")
+    for viewport in viewports
+}
+assert {
+    (job["browser"], job["viewport"]["width"], job["viewport"]["height"]) for job in result["jobs"]
+} == expected_matrix, result
 assert all(j["runtime"].get("browser_version") for j in result["jobs"]), result
 artifacts = request(f"/api/v1/runs/{run['id']}/artifacts?limit=100")
 assert {"screenshot", "video", "trace"} <= {a["kind"] for a in artifacts}, artifacts
-assert len(request(f"/api/v1/runs/{run['id']}/tests")) == 3
+assert len(request(f"/api/v1/runs/{run['id']}/tests")) == 6
 verify_browser_logs(result, artifacts)
+jobs = {job["id"]: job for job in result["jobs"]}
+observed_artifacts = {job_id: set() for job_id in jobs}
 for artifact in artifacts:
     link = request(f"/api/v1/artifacts/{artifact['id']}/download")
     with urllib.request.urlopen(link["url"], timeout=20) as response:
-        assert response.read(1)
+        header = response.read(24)
+        assert header
+        observed_artifacts[artifact["job_id"]].add(artifact["kind"])
+        if artifact["kind"] == "screenshot":
+            assert header[:8] == b"\x89PNG\r\n\x1a\n" and header[12:16] == b"IHDR", artifact
+            viewport = jobs[artifact["job_id"]]["viewport"]
+            assert struct.unpack(">II", header[16:24]) == (
+                viewport["width"],
+                viewport["height"],
+            ), artifact
+assert all({"screenshot", "video", "trace"} <= kinds for kinds in observed_artifacts.values())
 # Real uploaded-source path: validated ZIP -> private storage -> worker/npm ci -> Chromium.
 root = Path(__file__).resolve().parents[2]
 buffer = io.BytesIO()
@@ -219,5 +245,6 @@ for _ in range(20):
 else:
     raise AssertionError("Cancelled execution left its sandbox behind")
 print(
-    "Real browser matrix, uploaded bundle, artifacts, failure classification and cancellation passed."
+    "Real six-job browser/viewport matrix, PNG dimensions, uploaded bundle, artifacts, "
+    "failure classification and cancellation passed."
 )
