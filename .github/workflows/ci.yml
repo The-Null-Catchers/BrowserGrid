@@ -53,8 +53,12 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: {node-version: '22'}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.13'}
       - run: npm ci && node --test tests/*.test.cjs
         working-directory: runtimes
+      - run: pip install -r requirements.lock && pip install --no-deps -e .
+      - run: python infra/scripts/report_contract.py
   isolated-browser-e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 25

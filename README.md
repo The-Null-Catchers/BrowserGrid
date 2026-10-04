@@ -108,12 +108,13 @@ python -m venv .venv
 . .venv/bin/activate
 make install
 make test
+make test-runtime
 make lint
 # With the Compose stack running:
 make e2e
 ```
 
-Runtime contract checks: `cd runtimes && npm ci && node --test tests/*.test.cjs`. These verify actual test discovery without launching a browser.
+`make test-runtime` installs the pinned runtime packages, runs Node contracts and executes actual Playwright tests without browser fixtures. It exercises the generated config and reporter through BrowserGrid's Python report parser, including retries, expected failures, skipped tests, timeouts and discovery errors. This validates interoperability without launching a browser; it does not substitute for isolated browser E2E.
 
 The real E2E script creates an account, workspace and project, runs the actual browser matrix, checks test reports and downloaded screenshot/video/trace files, verifies console output and a successful fixture fetch for every matrix job, uploads and executes a ZIP bundle with verified PNG and log artifacts, exercises an intentional test failure and active-run cancellation with sandbox removal verification. It contains no browser mocks. The disposable network acceptance script adds positive-control host/DNAT canaries and metadata proxy denial; the recovery script tests worker loss and independent timeout enforcement. CI is configured to run these paths on a Docker-enabled Linux runner; the workflow has not been run remotely yet.
 

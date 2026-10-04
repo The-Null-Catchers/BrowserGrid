@@ -1,4 +1,4 @@
-.PHONY: dev test lint e2e migrate install
+.PHONY: dev test test-runtime lint e2e migrate install
 install:
 	python -m pip install -r requirements.lock
 	python -m pip install -e . --no-deps
@@ -9,6 +9,10 @@ dev:
 
 test:
 	python -m pytest -q
+
+test-runtime:
+	cd runtimes && npm ci && node --test tests/*.test.cjs
+	python infra/scripts/report_contract.py
 
 lint:
 	ruff check .

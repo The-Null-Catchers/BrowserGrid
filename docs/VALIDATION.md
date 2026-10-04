@@ -14,6 +14,7 @@ Authoring date: 2026-10-04. This records executed checks, not expected results.
 | Web/runtime npm production dependency audit | Zero vulnerabilities reported after compatible patch/override updates |
 | JavaScript runtime/reporter/SDK/fixture syntax | Passed |
 | Node runtime/SDK contracts | 16 passed; includes repository test discovery with a separate Playwright installation, a real SIGTERM child process and bounded console/network capture regressions |
+| Actual Playwright CLI/config/reporter → Python parser | Passed locally: mixed outcomes, successful subset and discovery error; no page/browser fixtures |
 | Clean PostgreSQL migration / concurrent acquisition | Not executed locally; dedicated CI job provided |
 | Docker image builds / Compose startup | Not executed: Docker unavailable and effective Linux capabilities are zero |
 | Real Chromium/Firefox/WebKit E2E | Not executed: no Docker; attempted Chromium download produced a truncated/non-ZIP response |
@@ -74,3 +75,9 @@ The real Docker smoke script now also uploads a ZIP with the pinned Playwright l
 Eleven additional SDK regressions cover delayed response metadata, bounded draining of stalled reads, immutable completed snapshots, failed and still-active requests, concurrent request limits, duplicate terminal events, preserved unrelated listeners, sanitized URLs, console bounds, preserved HTTP status after a size-read error, and writing actual JSON attachments when the test body fails. The full Node suite passed all 16 tests. Capture tests use event/request doubles; they do not establish actual browser capture. Ruff lint/format, JavaScript syntax and diff whitespace checks passed.
 
 The real Docker smoke script now asserts a known console message and a successful fixture fetch in downloaded JSON artifacts for every matrix job and the uploaded-bundle job. This acceptance remains unexecuted. The collector stops its listeners before a two-second metadata drain, marks unfinished records explicitly and bounds console/network records to 1,000 each. No dependencies or frontend source changed; their previous audits/build were not repeated.
+
+## Actual report interoperability follow-up
+
+`infra/scripts/report_contract.py` ran the pinned Playwright CLI against six actual tests, using the same generated-config helper and reporter as the sandbox runtime. BrowserGrid parsed the resulting JSON and correctly classified passed, failed, flaky, skipped, expected-failure and timed-out cases. Assertions also checked retry history, error retention, nine real reporter attempt events and enforcement of the selected project/viewport over original configuration.
+
+A filtered passing run returned process exit code zero and one passing result. A separate test-file discovery exception returned nonzero, no test rows and a global error report. These three CLI executions use no report mocks and were executed locally; they do not launch a browser or exercise Docker, scheduling or storage. The configured runtime CI job now runs the same Python/Node interoperability script. It has not run remotely. Dependencies, frontend and Python business logic are unchanged; previous unit suites/audits/build were not repeated.
