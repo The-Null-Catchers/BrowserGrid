@@ -48,6 +48,18 @@ def test_sandbox_security_contract():
     container.remove.assert_called_with(force=True)
 
 
+def test_browser_chroot_allowed_without_granting_container_capabilities():
+    import json
+    from pathlib import Path
+    import browsergrid.execution.docker_backend as executor
+
+    profile = json.loads(Path(executor.__file__).with_name("seccomp.json").read_text())
+    assert profile["defaultAction"] == "SCMP_ACT_ERRNO"
+    rules = [rule for rule in profile["syscalls"] if rule["action"] == "SCMP_ACT_ALLOW"]
+    assert any("chroot" in rule["names"] and not rule.get("includes") for rule in rules)
+    assert not any("mount" in rule["names"] and not rule.get("includes") for rule in rules)
+
+
 def test_input_failure_removes_container():
     client = MagicMock()
     client.api.exec_start.side_effect = RuntimeError("Docker transfer failed")

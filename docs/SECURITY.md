@@ -21,7 +21,7 @@ The worker monitor attempts independent sandbox removal on cancellation, shutdow
 
 The independent watchdog reads deadlines from Docker labels and removes expired sandboxes every two seconds without database access or worker liveness. It has engine access, no network, and no project/storage credentials. The scheduler also fences jobs at their authoritative deadline. Watchdog enforcement depends on the daemon, watchdog process and host clock remaining healthy; it is not a hypervisor guarantee. Real worker-crash and watchdog acceptance is supplied in `infra/scripts/recovery_e2e.py` but has not run in the authoring environment.
 
-The Playwright seccomp profile is copied from the upstream `v1.58.2` Docker utilities. User namespace availability and AppArmor compatibility must be validated on the destination kernel; do not resolve browser launch failures with `--privileged` or unconfined seccomp.
+The seccomp profile derives from the upstream Playwright `v1.58.2` Docker utilities. BrowserGrid additionally allows `chroot` at the syscall-filter layer: the upstream rule depends on the container's `CAP_SYS_CHROOT`, which is absent with all capabilities dropped, and blocked Chromium's own child-namespace sandbox during real CI. The container still receives no capabilities; kernel capability checks still apply, including inside user namespaces. This permits browser sandbox setup without granting host-namespace chroot privileges. User namespace availability and AppArmor compatibility must be validated on the destination kernel; do not resolve browser launch failures with `--privileged` or unconfined seccomp.
 
 ## Network / SSRF
 
