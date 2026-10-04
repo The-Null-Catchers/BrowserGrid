@@ -6,6 +6,13 @@ from browsergrid.execution.backend import ExecutionSpec
 from browsergrid.execution.docker_backend import DockerExecutionBackend
 
 
+def artifact_backend(chunks):
+    client = MagicMock()
+    client.api.exec_start.return_value = iter(chunks)
+    client.api.exec_inspect.return_value = {"Running": False, "ExitCode": 0}
+    return DockerExecutionBackend(client)
+
+
 def test_sandbox_security_contract():
     client = MagicMock()
     client.api.exec_start.return_value._sock.recv.return_value = b""
@@ -89,15 +96,18 @@ def tar_item(name, content=b"x", type=tarfile.REGTYPE):
 )
 def test_artifact_archive_rejects_traversal_and_links(name, type):
     container = MagicMock()
-    container.get_archive.return_value = ([tar_item(name, type=type)], {})
     with pytest.raises(ValueError):
-        DockerExecutionBackend(MagicMock()).artifacts(container)
+        artifact_backend([tar_item(name, type=type)]).artifacts(container)
 
 
 def test_artifact_collection():
     container = MagicMock()
-    container.get_archive.return_value = ([tar_item("results/report.json", b"{}")], {})
-    assert DockerExecutionBackend(MagicMock()).artifacts(container) == {"report.json": b"{}"}
+    backend = artifact_backend([tar_item("results/report.json", b"{}")])
+    assert backend.artifacts(container) == {"report.json": b"{}"}
+    container.get_archive.assert_not_called()
+    transfer = backend.client.api.exec_create.call_args.kwargs
+    assert transfer["user"] == "1000:1000" and transfer["privileged"] is False
+    assert transfer["stderr"] is False
 
 
 def test_fragmented_stdout_stays_bounded():
@@ -124,9 +134,8 @@ def test_fragmented_stdout_stays_bounded():
 )
 def test_artifact_names_and_directory_metadata_are_validated(name, type):
     container = MagicMock()
-    container.get_archive.return_value = ([tar_item(name, type=type)], {})
     with pytest.raises(ValueError):
-        DockerExecutionBackend(MagicMock()).artifacts(container)
+        artifact_backend([tar_item(name, type=type)]).artifacts(container)
 
 
 def tar_entries(names):
@@ -145,9 +154,8 @@ def tar_entries(names):
 )
 def test_artifact_duplicate_and_file_directory_collision_rejected(names):
     container = MagicMock()
-    container.get_archive.return_value = ([tar_entries(names)], {})
     with pytest.raises(ValueError):
-        DockerExecutionBackend(MagicMock()).artifacts(container)
+        artifact_backend([tar_entries(names)]).artifacts(container)
 
 
 def test_artifact_transport_limit_before_parsing(monkeypatch):
@@ -156,9 +164,8 @@ def test_artifact_transport_limit_before_parsing(monkeypatch):
 
     monkeypatch.setattr(executor, "settings", lambda: SimpleNamespace(max_run_artifacts_bytes=8))
     container = MagicMock()
-    container.get_archive.return_value = ([b"12345", b"67890"], {})
     with pytest.raises(ValueError, match="transport limit"):
-        DockerExecutionBackend(MagicMock()).artifacts(container)
+        artifact_backend([b"12345", b"67890"]).artifacts(container)
 
 
 def test_artifact_entry_limit_counts_directories():
@@ -169,6 +176,12 @@ def test_artifact_entry_limit_counts_directories():
             item.type = tarfile.DIRTYPE
             archive.addfile(item)
     container = MagicMock()
-    container.get_archive.return_value = ([out.getvalue()], {})
     with pytest.raises(ValueError, match="Too many"):
-        DockerExecutionBackend(MagicMock()).artifacts(container)
+        artifact_backend([out.getvalue()]).artifacts(container)
+
+
+def test_failed_archive_command_cannot_be_parsed_as_success():
+    backend = artifact_backend([tar_item("results/report.json", b"{}")])
+    backend.client.api.exec_inspect.return_value = {"Running": False, "ExitCode": 2}
+    with pytest.raises(RuntimeError, match="extraction failed"):
+        backend.artifacts(MagicMock())

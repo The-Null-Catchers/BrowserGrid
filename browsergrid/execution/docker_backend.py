@@ -151,14 +151,30 @@ class DockerExecutionBackend(ExecutionBackend):
         return container.attrs["State"]
 
     def artifacts(self, container):
-        chunks, _ = container.get_archive("/work/results")
+        # Engine archive access does not expose the live container's tmpfs mounts.
+        execution = self.client.api.exec_create(
+            container.id,
+            cmd=["tar", "--create", "--file=-", "--directory=/work", "results"],
+            user="1000:1000",
+            privileged=False,
+            stdout=True,
+            stderr=False,
+        )
+        chunks = self.client.api.exec_start(execution["Id"], stream=True)
         # Bound the TAR transport too, before parsing any untrusted archive metadata.
         limit = settings().max_run_artifacts_bytes
         data = io.BytesIO()
-        for chunk in chunks:
-            if data.tell() + len(chunk) > limit:
-                raise ValueError("Artifact transport limit exceeded")
-            data.write(chunk)
+        try:
+            for chunk in chunks:
+                if data.tell() + len(chunk) > limit:
+                    raise ValueError("Artifact transport limit exceeded")
+                data.write(chunk)
+        finally:
+            if hasattr(chunks, "close"):
+                chunks.close()
+        outcome = self.client.api.exec_inspect(execution["Id"])
+        if outcome.get("Running") or outcome.get("ExitCode") != 0:
+            raise RuntimeError("Artifact archive extraction failed")
         data.seek(0)
         result = {}
         seen = set()

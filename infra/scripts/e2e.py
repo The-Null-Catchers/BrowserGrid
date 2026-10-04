@@ -51,6 +51,9 @@ def wait(rid):
     while time.monotonic() < deadline:
         run = request(f"/api/v1/runs/{rid}")
         if run["status"] in {"passed", "failed", "infrastructure_failed", "timed_out", "cancelled"}:
+            if run["status"] == "infrastructure_failed":
+                with client.open(BASE + f"/api/v1/runs/{rid}/events", timeout=20) as response:
+                    print("Infrastructure failure timeline:\n" + response.read(256 * 1024).decode())
             return run
         time.sleep(1)
     raise AssertionError("Execution never completed")
