@@ -4,7 +4,7 @@ Authoring date: 2026-10-04. This records executed checks, not expected results.
 
 | Check | Observed result |
 | --- | --- |
-| Python control-plane/security/scheduler/executor/worker unit suite | 139 passed; 7 PostgreSQL-specific tests skipped |
+| Python control-plane/security/scheduler/executor/worker unit suite | 146 passed; 7 PostgreSQL-specific tests skipped in this job and passed in the dedicated PostgreSQL job |
 | Ruff lint and formatting | Passed |
 | Next.js TypeScript check | Passed |
 | Next.js production build | Passed, version 15.5.27 |
@@ -17,18 +17,18 @@ Authoring date: 2026-10-04. This records executed checks, not expected results.
 | Actual Playwright CLI/config/reporter → Python parser | Passed locally: mixed outcomes, successful subset and discovery error; no page/browser fixtures |
 | Clean PostgreSQL migration / concurrent acquisition | Passed on GitHub Actions: clean upgrade/downgrade/upgrade and all 7 PostgreSQL acceptance tests |
 | Docker image builds / Compose startup | Passed on GitHub Actions after replacing unavailable MinIO registry images with a pinned source build |
-| Real Chromium/Firefox/WebKit E2E | CI reached job execution but input transfer failed before browser launch; corrected transfer awaits acceptance |
-| Live worker-crash/watchdog recovery acceptance | Not executed; disposable-stack script and CI step provided |
-| Live sandbox/network escape tests | Not executed; positive-control host/DNAT/metadata acceptance script and CI step provided |
+| Real Chromium/Firefox/WebKit E2E | Passed on GitHub Actions: matrix, uploaded ZIP, results, screenshot/video/trace downloads, console/network JSON, assertion failure and active cancellation with sandbox removal |
+| Live worker-crash/watchdog recovery acceptance | Passed: WORKER_LOST fencing, restarted-worker reaping and independent watchdog timeout with the worker stopped |
+| Live sandbox/network escape tests | Limited live acceptance passed: fixture allowed; host and published-port DNAT canaries blocked; metadata proxy request denied. Comprehensive DNS rebinding/IPv6/UDP probes remain pending |
 | Container OS vulnerability scan | Not executed |
 | Dashboard browser/visual/accessibility QA | Not executed; build/type checks do not substitute for these |
-| GitHub CI / repository push | Published to The-Null-Catchers/BrowserGrid; five CI jobs passed; isolated browser E2E pending |
+| GitHub CI / repository push | Published to The-Null-Catchers/BrowserGrid; all six jobs passed at commit 68529ae058d75aa19e7886023ce941fc18dfaff1 |
 
 Unit executor/worker tests deliberately use doubles to test orchestration and cleanup. They do not establish that a browser launched. `infra/scripts/e2e.py` and the `isolated-browser-e2e` CI job exercise the real path without substituting a mock browser.
 
 The local test environment used Python 3.12.14 and Node 24.19.0. GitHub CI passed control-plane, PostgreSQL, runtime and web checks on the configured Python 3.13 / Node 22 targets. The browser runtime pins Playwright and its image to 1.58.2; actual engine versions are recorded on launch, not invented.
 
-One local warning remains: the installed Starlette TestClient warns that its httpx transport is deprecated. This did not fail the tests. No required live execution phase is certified complete.
+One local warning remains: the installed Starlette TestClient warns that its httpx transport is deprecated. This did not fail the tests. The live execution gate passed; this does not certify completion of the entire product specification.
 
 Dependency audits reflect their current advisory databases and do not guarantee absence of vulnerabilities. The web lockfile uses explicit patched overrides for transitive postcss/sharp dependencies; the production build was rechecked after updating them.
 
@@ -88,4 +88,18 @@ The source was published after explicit approval to the public repository, prese
 
 Isolated browser acceptance initially stopped before builds because the pinned MinIO image could not be pulled from Docker Hub; a Quay attempt also returned an authorization error. The local storage service now builds official MinIO security-release source at an exact commit with a non-root runtime. The [source-build CI run](https://github.com/The-Null-Catchers/BrowserGrid/actions/runs/37238282547) built the images and started the stack, then failed at sandbox input transfer: Docker's archive API rejected the read-only rootfs despite the writable tmpfs.
 
-Input now streams through a non-root, unprivileged tar exec into `/work`, preserving the read-only rootfs, bounded tmpfs, capabilities and network policy. Local executor checks verify transfer metadata, readiness ordering, exit failures, bounded exec output and sandbox cleanup. These use Docker API doubles; the corrected actual Docker path must still pass. Browser, network and recovery acceptance are not certified merely because the other five jobs passed.
+Input now streams through a non-root, unprivileged tar exec into `/work`, preserving the read-only rootfs, bounded tmpfs, capabilities and network policy. Local executor checks verify transfer metadata, readiness ordering, exit failures, bounded exec output and sandbox cleanup. These use Docker API doubles; the later acceptance below verifies the actual Docker path.
+
+## Passing Docker execution acceptance
+
+[CI run 37240077248](https://github.com/The-Null-Catchers/BrowserGrid/actions/runs/37240077248) passed all six jobs at commit `68529ae058d75aa19e7886023ce941fc18dfaff1`. This supersedes the earlier pending browser, PostgreSQL, network and recovery notes above; those sections preserve the earlier authoring history.
+
+The clean Compose build/startup and real API → durable queue → worker → disposable container → Playwright → S3/DB path passed. The matrix launched Chromium, Firefox and WebKit against the deterministic fixture, produced individual passing results, and downloaded nonempty screenshots, videos and traces. Console and network JSON contained the expected console message and successful fixture fetch for each browser. A separately uploaded ZIP installed its pinned dependencies, ran the repository-local CLI, returned a passing individual result and produced a PNG with the expected signature and log attachments. An intentional assertion failed as a test failure; an active run cancelled and its sandbox was removed.
+
+The live network script proved both host and published-port canaries reachable from the engine host before and after execution, then verified they were unreachable from the Chromium sandbox. Fixture access succeeded and the proxy denied a metadata request. This verifies those routes on the CI host, not exhaustive SSRF, DNS rebinding, IPv6 or UDP protection.
+
+The recovery script killed and stopped the trusted worker during an active execution. The scheduler returned `infrastructure_failed` with `WORKER_LOST`; restarting the worker reaped the orphaned sandbox. A second execution reached its wall deadline and the independent watchdog removed its sandbox while the worker remained stopped; the scheduler recorded `timed_out` with `RUN_TIMEOUT`.
+
+Actual CI exposed and drove fixes for unavailable MinIO registry images, archive transport on a read-only rootfs with tmpfs, browser child-namespace `chroot` filtering and Docker's default noexec workspace mount. Artifact collection now uses bounded non-root tar exec output; `/work` explicitly permits execution while remaining `nosuid,nodev`. All capabilities remain dropped, rootfs read-only and seccomp enabled. No browser result was substituted to pass acceptance.
+
+Git repository checkout against an external repository, multi-viewport browser acceptance, the dashboard's own browser E2E, rich media viewers and comprehensive production security/observability remain separate work. The CI artifact `execution-evidence` retains Compose logs under GitHub's artifact retention policy.

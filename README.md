@@ -2,7 +2,7 @@
 
 Self-hosted browser execution infrastructure: a FastAPI control plane, a transactional job queue, disposable Docker browser sandboxes, and a Next.js operations dashboard.
 
-**Status: initial implementation, not a production release.** No execution results are fabricated. The control-plane tests and dashboard build have been validated; the Docker browser path is implemented but has not been run in the authoring environment. See [validation evidence](docs/VALIDATION.md) and [delivery scope](docs/ROADMAP.md) before deploying.
+**Status: working execution core, not a production release.** No execution results are fabricated. [All six CI jobs passed](https://github.com/The-Null-Catchers/BrowserGrid/actions/runs/37240077248), including real isolated Chromium/Firefox/WebKit runs, uploaded bundles, artifacts, cancellation, limited network escape probes and worker-loss/watchdog recovery. See [validation evidence](docs/VALIDATION.md) and [delivery scope](docs/ROADMAP.md) for remaining requirements.
 
 ## Local setup
 
@@ -13,7 +13,7 @@ cp .env.example .env
 docker compose up --build
 ```
 
-Open **http://localhost:3000**, register with a password of at least 12 characters, create a workspace and project, then choose **New run**. The inline example exercises the included fixture. Select Chromium first; acceptance of that path is the gate before enabling the remaining matrix.
+Open **http://localhost:3000**, register with a password of at least 12 characters, create a workspace and project, then choose **New run**. The inline example exercises the included fixture. Start with Chromium, then select Firefox/WebKit and additional viewports as needed. Rerun acceptance on your deployment host; kernel and firewall compatibility matter.
 
 - Dashboard: http://localhost:3000
 - API docs: http://localhost:8000/docs
@@ -116,9 +116,9 @@ make e2e
 
 `make test-runtime` installs the pinned runtime packages, runs Node contracts and executes actual Playwright tests without browser fixtures. It exercises the generated config and reporter through BrowserGrid's Python report parser, including retries, expected failures, skipped tests, timeouts and discovery errors. This validates interoperability without launching a browser; it does not substitute for isolated browser E2E.
 
-The real E2E script creates an account, workspace and project, runs the actual browser matrix, checks test reports and downloaded screenshot/video/trace files, verifies console output and a successful fixture fetch for every matrix job, uploads and executes a ZIP bundle with verified PNG and log artifacts, exercises an intentional test failure and active-run cancellation with sandbox removal verification. It contains no browser mocks. The disposable network acceptance script adds positive-control host/DNAT canaries and metadata proxy denial; the recovery script tests worker loss and independent timeout enforcement. GitHub CI has passed control-plane, PostgreSQL contention/migrations, runtime contracts, web and dependency/secret checks. Isolated browser execution remains a separate acceptance gate; see [validation evidence](docs/VALIDATION.md) for executed run links and remaining blockers.
+The real E2E script creates an account, workspace and project, runs the actual browser matrix, checks test reports and downloaded screenshot/video/trace files, verifies console output and a successful fixture fetch for every matrix job, uploads and executes a ZIP bundle with verified PNG and log artifacts, exercises an intentional test failure and active-run cancellation with sandbox removal verification. It contains no browser mocks. The disposable network acceptance script adds positive-control host/DNAT canaries and metadata proxy denial; the recovery script tests worker loss and independent timeout enforcement. All three scripts passed on GitHub Actions alongside control-plane, PostgreSQL contention/migrations, runtime contracts, web and dependency/secret checks. See [validation evidence](docs/VALIDATION.md) for the executed commit, run link and limits of this acceptance.
 
-Do not mark phase 2 complete until the real Docker E2E passes. Do not expose this early implementation to hostile users; the roadmap separates implemented paths from remaining production requirements.
+The real Docker execution gate passed. Broader dashboard, quality and production requirements remain open; the roadmap separates verified paths from remaining work. Do not expose this early implementation to hostile users.
 
 ## Further reading
 
