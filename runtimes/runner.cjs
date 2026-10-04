@@ -1,7 +1,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
-const { executionCommand, generatedConfigSource } = require('./config.cjs');
+const { executionCommand, generatedConfigSource, processExitCode } = require('./config.cjs');
 const { chromium, firefox, webkit } = require('@playwright/test');
 const emit = (kind, data={}) => console.log('@bg:' + JSON.stringify({kind,...data}));
 const state = value => emit('state', {state:value});
@@ -81,7 +81,11 @@ async function command(args, cwd, env, code) {
   await new Promise((resolve,reject)=>{
     const child=spawn(args[0],args.slice(1),{cwd,env,stdio:'inherit'});
     child.on('error',reject);
-    child.on('exit',code=>{process.exitCode=code||0;resolve();});
+    child.on('exit',(code,signal)=>{
+      process.exitCode=processExitCode(code,signal);
+      if(signal)emit('error',{code:'TEST_PROCESS_INTERRUPTED',signal,message:'Test command terminated by signal'});
+      resolve();
+    });
   });
 })().catch(error=>{emit('error',{code:error.code||'RUNTIME_SETUP_FAILED',message:error.message});process.exitCode=2;}).finally(()=>{
   emit('completed',{exit_code:process.exitCode||0});

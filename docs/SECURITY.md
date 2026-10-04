@@ -39,6 +39,8 @@ Passwords use Argon2. Opaque browser-session tokens are stored as SHA-256 digest
 
 Project secrets are encrypted with Fernet, using a persistent key generated on first startup. Secret values are not returned through project APIs. Worker injection never includes database/storage credentials. Reserved execution environment names are rejected.
 
+Worker stdout is treated as untrusted input. Ordinary output has event-count and serialized-byte limits; malformed or repeated control messages cannot bypass those limits. Lifecycle transitions are forward-only and critical control data is normalized. Fixed protocol labels are validated before free-text redaction so a secret coinciding with a state name cannot break execution. Runtime stdout and reports are generated in a code-controlled sandbox and do not attest that a malicious test author honestly tested their application. They never authorize tenant operations or override immutable job/worker/image identities.
+
 Log masking covers literal, URL-encoded and base64 secret values but cannot prevent encoded exfiltration by malicious code. Screenshots, video and trace archives may contain secrets and tokens; restrict artifact readers and retention accordingly. Do not inject credentials into tests from untrusted repositories.
 
 ## File controls

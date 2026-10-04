@@ -4,7 +4,7 @@ Authoring date: 2026-10-04. This records executed checks, not expected results.
 
 | Check | Observed result |
 | --- | --- |
-| Python control-plane/security/scheduler/executor/worker unit suite | 103 passed; 1 PostgreSQL-specific test skipped |
+| Python control-plane/security/scheduler/executor/worker unit suite | 123 passed; 1 PostgreSQL-specific test skipped |
 | Ruff lint and formatting | Passed |
 | Next.js TypeScript check | Passed |
 | Next.js production build | Passed, version 15.5.27 |
@@ -13,7 +13,7 @@ Authoring date: 2026-10-04. This records executed checks, not expected results.
 | Python dependency audit against pinned lockfile | No known vulnerabilities reported by pip-audit |
 | Web/runtime npm production dependency audit | Zero vulnerabilities reported after compatible patch/override updates |
 | JavaScript runtime/reporter/SDK/fixture syntax | Passed |
-| Node runtime contracts | 3 passed; includes real repository test discovery with a separate Playwright installation |
+| Node runtime contracts | 5 passed; includes real repository test discovery with a separate Playwright installation and a real SIGTERM child-process regression |
 | Clean PostgreSQL migration / concurrent acquisition | Not executed locally; dedicated CI job provided |
 | Docker image builds / Compose startup | Not executed: Docker unavailable and effective Linux capabilities are zero |
 | Real Chromium/Firefox/WebKit E2E | Not executed: no Docker; attempted Chromium download produced a truncated/non-ZIP response |
@@ -44,3 +44,11 @@ Eighteen additional executed regressions verify independent sandbox removal duri
 The scheduler runs artifact retention in a separate session/thread so stalled object storage does not block lease recovery. An object-specific deletion failure leaves its metadata for retry and does not prevent deletion of other expired objects. Both behaviors have executed regression checks.
 
 The real Docker smoke script now waits for the slow job to reach `running` before cancelling it and checks removal of its sandbox. That acceptance script remains unexecuted here. These worker tests use a deliberately stalled transport and backend double; they establish orchestration behavior, not real browser or Docker acceptance. Node/web/dependency checks were not rerun in this follow-up because their source/dependencies were unchanged.
+
+## Runtime exit and output integrity follow-up
+
+The full Python suite now includes runtime-output regressions for count and serialized-byte bounds, repeated state/runtime messages, continued lifecycle/completion processing after truncation, invalid exit codes, non-finite/deep JSON, schema labels unaffected by secret masking, and prevention of a passing run when the command exits nonzero despite a passing report.
+
+Node contract tests launch an actual child process that terminates itself with SIGTERM and verify exit status 143, instead of treating Node's null exit code as zero. This is a real process test, not a browser execution. BrowserGrid records normalized process exit events; the dashboard now subscribes to these and output-truncation events. Next.js type checking and production build were rerun successfully after this frontend change. Browser/dashboard E2E remains pending.
+
+Ordinary worker output is bounded to 10,000 events and 4 MiB of serialized event payloads per job. One truncation event is emitted; subsequent ordinary output is dropped. Forward-only lifecycle states, one runtime identity, one critical runtime error and one completion event remain available beyond that budget. Runtime metadata accepts only bounded browser version and the pinned Playwright version; it cannot overwrite worker/image/source metadata. Dependency advisory audits were not rerun because no dependency files changed.

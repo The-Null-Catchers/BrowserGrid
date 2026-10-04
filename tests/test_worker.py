@@ -314,3 +314,37 @@ def test_expired_preparation_does_not_create_sandbox(db, monkeypatch):
     create.assert_not_called()
     db.expire_all()
     assert db.get(Run, rid).status == "timed_out"
+
+
+def test_log_flood_preserves_lifecycle_and_truncation_notice(db, monkeypatch):
+    import browsergrid.worker as worker
+    from browsergrid.execution.output import RuntimeOutput
+    from browsergrid.models import Event
+    from sqlalchemy import select
+
+    rid, jid, token = prepare(db, monkeypatch)
+    monkeypatch.setattr(
+        worker,
+        "RuntimeOutput",
+        lambda redactor: RuntimeOutput(redactor, max_events=2, max_bytes=200),
+    )
+    backend = Backend()
+    backend.container.lines[1:1] = [
+        b'@bg:{"kind":"state","state":"installing_dependencies"}\n'
+    ] * 100
+    execute(backend, "worker-unit", jid, token)
+    db.expire_all()
+    assert db.get(Run, rid).status == "passed"
+    events = list(db.scalars(select(Event).where(Event.run_id == rid)))
+    assert sum(e.kind == "output_truncated" for e in events) == 1
+    assert sum(e.kind == "process_exit" for e in events) == 1
+    assert len(events) < 15
+
+
+def test_interrupted_process_cannot_pass_with_passing_report(db, monkeypatch):
+    rid, jid, token = prepare(db, monkeypatch)
+    backend = Backend()
+    backend.container.lines[-1] = b'@bg:{"kind":"completed","exit_code":143}\n'
+    execute(backend, "worker-unit", jid, token)
+    db.expire_all()
+    assert db.get(Run, rid).status == "failed"

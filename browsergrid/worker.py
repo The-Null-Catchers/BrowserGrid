@@ -1,4 +1,3 @@
-import json
 import logging
 import mimetypes
 import os
@@ -15,6 +14,7 @@ from browsergrid.config import settings
 from browsergrid.db import session_factory
 from browsergrid.execution.backend import ExecutionSpec
 from browsergrid.execution.logs import bounded_lines
+from browsergrid.execution.output import RuntimeOutput
 from browsergrid.execution.docker_backend import DockerExecutionBackend
 from browsergrid.lifecycle import ACTIVE, TERMINAL, event, transition
 from browsergrid.models import Artifact, Bundle, Job, Run, Secret, Worker, now, uid
@@ -154,9 +154,7 @@ def execute(backend, worker_id, job_id, token):
 
         reader = threading.Thread(target=read_logs, daemon=True)
         reader.start()
-        logged = 0
-        runtime_exit = None
-        setup_error = None
+        output = RuntimeOutput(redactor)
         while True:
             if shutdown.is_set() or cancelled.is_set():
                 state(job_id, token, "cancelled")
@@ -169,61 +167,17 @@ def execute(backend, worker_id, job_id, token):
                 return
             try:
                 line = lines.get(timeout=0.2)
-                control = None
-                if line.startswith("@bg:"):
-                    try:
-                        parsed = json.loads(line[4:])
-                        control = parsed.get("kind") if isinstance(parsed, dict) else None
-                    except ValueError:
-                        pass
-                if logged < 10000 or control in {"state", "completed"}:
+                message = output.prepare(line)
+                if message:
                     with session_factory()() as db:
                         job = leased_job(db, job_id, token)
-                        clean = redactor.text(line)
-                        if line.startswith("@bg:"):
-                            try:
-                                payload = json.loads(line[4:])
-                                if payload.get("kind") == "completed":
-                                    runtime_exit = int(payload.get("exit_code", 2))
-                                elif payload.get("kind") == "state" and payload.get("state") in {
-                                    "pulling_source",
-                                    "installing_dependencies",
-                                    "starting_browser",
-                                    "running",
-                                }:
-                                    transition(db, job, payload["state"])
-                                elif payload.get("kind") in {
-                                    "test_start",
-                                    "test_end",
-                                    "runtime",
-                                    "error",
-                                }:
-                                    if payload.get("kind") == "error" and payload.get("code") in {
-                                        "REPOSITORY_CLONE_FAILED",
-                                        "DEPENDENCY_INSTALL_FAILED",
-                                        "BROWSER_LAUNCH_FAILED",
-                                        "RUNTIME_SETUP_FAILED",
-                                    }:
-                                        setup_error = payload["code"]
-                                    if payload.get("kind") == "runtime":
-                                        job.runtime = {
-                                            **job.runtime,
-                                            **redactor.data(payload.get("data", {})),
-                                        }
-                                    event(db, job, payload["kind"], redactor.data(payload))
-                                else:
-                                    event(db, job, "log", {"message": clean})
-                            except (ValueError, TypeError, AttributeError):
-                                event(db, job, "log", {"message": clean})
-                        else:
-                            event(db, job, "log", {"message": clean})
+                        output.apply(db, job, message)
                         db.commit()
-                    logged += 1
             except queue.Empty:
                 pass
             info = backend.status(container)
-            if runtime_exit is not None:
-                info = {**info, "ExitCode": runtime_exit}
+            if output.exit_code is not None:
+                info = {**info, "ExitCode": output.exit_code}
                 break
             if not info["Running"] and lines.empty() and not reader.is_alive():
                 break
@@ -240,7 +194,9 @@ def execute(backend, worker_id, job_id, token):
                         "exit_code": info.get("ExitCode"),
                     },
                 )
-                transition(db, job, "infrastructure_failed", setup_error or "RUNTIME_SETUP_FAILED")
+                transition(
+                    db, job, "infrastructure_failed", output.setup_error or "RUNTIME_SETUP_FAILED"
+                )
                 db.commit()
                 return
         state(job_id, token, "uploading_artifacts")

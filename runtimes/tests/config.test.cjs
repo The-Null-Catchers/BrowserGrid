@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const {spawnSync} = require('node:child_process');
-const {executionCommand, generatedConfigSource} = require('../config.cjs');
+const {executionCommand, generatedConfigSource, processExitCode} = require('../config.cjs');
 
 test('repository default uses project Playwright CLI',()=>{
   const command=['/opt/browsergrid/node_modules/.bin/playwright','test'];
@@ -34,4 +34,22 @@ test('instrumented repository fixture loads without a second Playwright instance
     assert.equal(child.status,0,child.stdout+'\n'+child.stderr);
     assert.match(child.stdout,/repository discovery/);
   }finally{fs.rmSync(root,{recursive:true,force:true});}
+});
+
+test('missing or invalid child exit status cannot mean success',()=>{
+  assert.equal(processExitCode(0,null),0);
+  assert.equal(processExitCode(2,null),2);
+  for(const value of [null,undefined,NaN,-1,256,'0'])assert.notEqual(processExitCode(value,null),0);
+  assert.notEqual(processExitCode(0,'UNKNOWN_SIGNAL'),0);
+});
+test('a real signalled child produces a nonzero execution result',async()=>{
+  const {spawn}=require('node:child_process');
+  const child=spawn(process.execPath,['-e',"process.kill(process.pid,'SIGTERM')"],{stdio:'ignore'});
+  const result=await new Promise((resolve,reject)=>{
+    child.once('error',reject);
+    child.once('exit',(code,signal)=>resolve({code,signal}));
+  });
+  assert.equal(result.code,null);
+  assert.equal(result.signal,'SIGTERM');
+  assert.equal(processExitCode(result.code,result.signal),143);
 });

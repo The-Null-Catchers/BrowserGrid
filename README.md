@@ -50,7 +50,7 @@ The API never evaluates uploaded or inline code. A trusted worker owns Docker ac
 - User Playwright config is loaded inside the sandbox, then matrix, reporter, output directory and BrowserGrid capture options are enforced.
 - Repository dependency installation uses `npm ci --ignore-scripts`. Repositories requiring native/install scripts are not supported in this first version.
 
-Each job records its state transitions, worker ID, immutable source SHA, viewport, runtime image, worker version, Playwright version and actual launched browser version. Results are read from the real Playwright JSON report; incomplete/setup failures cannot be marked passed.
+Each job records its state transitions, worker ID, immutable source SHA, viewport, runtime image, worker version, Playwright version and actual launched browser version. Results are read from the real Playwright JSON report; incomplete/setup failures cannot be marked passed. A signalled or invalid command exit never becomes exit zero. Ordinary logs are bounded by count and bytes, with explicit truncation in the realtime timeline.
 
 For bundle/repository console and network collection, import the instrumented fixture:
 
