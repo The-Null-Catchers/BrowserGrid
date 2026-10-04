@@ -12,6 +12,8 @@ Inspect `docker compose logs api scheduler worker egress network-guard` if the E
 
 Docker Compose requires rootful Linux Docker Engine with host networking, NET_ADMIN and usable iptables/ip6tables filter tables. Rootless Docker and Docker Desktop are not supported by this host-firewall model. It assumes Linux x86_64 and the fixed local sandbox subnet `172.30.0.0/24`. If that conflicts with your host networks, change the bridge subnet, fixture address and proxy fixture ACL together. The sandbox bridge has the explicit Linux interface name `bg-sandbox`; keep it aligned with `BG_SANDBOX_BRIDGE` in the guard. Do not reuse that interface for unrelated workloads. Each sandbox has a unique ID label; no shared unsafe test filesystem is reused.
 
+The local MinIO image is built from official source commit `9e49d5e7a648f00e26f2246f4dc28e6b07f8c84a` (security release `RELEASE.2025-10-15T17-29-55Z`) because the previous registry images could not be pulled in CI. The first build downloads Go dependencies and takes longer than pulling a prebuilt image. Its runtime is non-root, with an HTTP health check and the upstream AGPL license included. MinIO's Go dependencies and container OS are not covered by the Python/npm advisory checks; review those separately and use a maintained external S3 service for production storage. This pinned local dependency is not a claim of current production security certification.
+
 ## Single-server preparation
 
 1. Replace local PostgreSQL and MinIO passwords with generated deployment credentials.

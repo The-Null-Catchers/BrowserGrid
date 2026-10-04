@@ -1,5 +1,6 @@
 import io
 import json
+import socket
 import tarfile
 import time
 from pathlib import Path, PurePosixPath
@@ -103,11 +104,41 @@ class DockerExecutionBackend(ExecutionBackend):
                     info.uid = info.gid = 1000
                     info.mode = 0o600
                     archive.addfile(info, io.BytesIO(content))
-            container.put_archive("/work", data.getvalue())
+            self._write_input(container, data.getvalue())
             return container
         except Exception:
             self.stop(container)
             raise
+
+    def _write_input(self, container, data):
+        # Docker's archive API rejects a read-only rootfs even for a writable tmpfs.
+        # A non-root exec extracts trusted, validated input into the existing tmpfs.
+        execution = self.client.api.exec_create(
+            container.id,
+            cmd=["tar", "--extract", "--no-same-owner", "--file=-", "--directory=/work"],
+            user="1000:1000",
+            privileged=False,
+            stdin=True,
+            stdout=True,
+            stderr=True,
+        )
+        connection = self.client.api.exec_start(execution["Id"], socket=True)
+        try:
+            transport = getattr(connection, "_sock", connection)
+            transport.settimeout(30)
+            transport.sendall(data)
+            transport.shutdown(socket.SHUT_WR)
+            # Drain the bounded exec response so the daemon can signal completion.
+            received = 0
+            while chunk := transport.recv(8192):
+                received += len(chunk)
+                if received > 65536:
+                    raise RuntimeError("Execution input extraction output exceeds limit")
+        finally:
+            connection.close()
+        result = self.client.api.exec_inspect(execution["Id"])
+        if result.get("Running") or result.get("ExitCode") != 0:
+            raise RuntimeError("Execution input extraction failed")
 
     def stop(self, container):
         try:

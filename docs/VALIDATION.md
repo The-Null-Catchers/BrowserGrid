@@ -15,18 +15,18 @@ Authoring date: 2026-10-04. This records executed checks, not expected results.
 | JavaScript runtime/reporter/SDK/fixture syntax | Passed |
 | Node runtime/SDK contracts | 16 passed; includes repository test discovery with a separate Playwright installation, a real SIGTERM child process and bounded console/network capture regressions |
 | Actual Playwright CLI/config/reporter → Python parser | Passed locally: mixed outcomes, successful subset and discovery error; no page/browser fixtures |
-| Clean PostgreSQL migration / concurrent acquisition | Not executed locally; dedicated CI job provided |
-| Docker image builds / Compose startup | Not executed: Docker unavailable and effective Linux capabilities are zero |
-| Real Chromium/Firefox/WebKit E2E | Not executed: no Docker; attempted Chromium download produced a truncated/non-ZIP response |
+| Clean PostgreSQL migration / concurrent acquisition | Passed on GitHub Actions: clean upgrade/downgrade/upgrade and all 7 PostgreSQL acceptance tests |
+| Docker image builds / Compose startup | Passed on GitHub Actions after replacing unavailable MinIO registry images with a pinned source build |
+| Real Chromium/Firefox/WebKit E2E | CI reached job execution but input transfer failed before browser launch; corrected transfer awaits acceptance |
 | Live worker-crash/watchdog recovery acceptance | Not executed; disposable-stack script and CI step provided |
 | Live sandbox/network escape tests | Not executed; positive-control host/DNAT/metadata acceptance script and CI step provided |
 | Container OS vulnerability scan | Not executed |
 | Dashboard browser/visual/accessibility QA | Not executed; build/type checks do not substitute for these |
-| GitHub CI / repository push | Not executed; no remote repository was supplied or created |
+| GitHub CI / repository push | Published to The-Null-Catchers/BrowserGrid; five CI jobs passed; isolated browser E2E pending |
 
 Unit executor/worker tests deliberately use doubles to test orchestration and cleanup. They do not establish that a browser launched. `infra/scripts/e2e.py` and the `isolated-browser-e2e` CI job exercise the real path without substituting a mock browser.
 
-The local test environment used Python 3.12.14 and Node 24.19.0. Docker/CI target Python 3.13 and Node 22. CI must verify those target versions before a release. The browser runtime pins Playwright and its image to 1.58.2; actual engine versions are recorded on launch, not invented.
+The local test environment used Python 3.12.14 and Node 24.19.0. GitHub CI passed control-plane, PostgreSQL, runtime and web checks on the configured Python 3.13 / Node 22 targets. The browser runtime pins Playwright and its image to 1.58.2; actual engine versions are recorded on launch, not invented.
 
 One local warning remains: the installed Starlette TestClient warns that its httpx transport is deprecated. This did not fail the tests. No required live execution phase is certified complete.
 
@@ -81,3 +81,11 @@ The real Docker smoke script now asserts a known console message and a successfu
 `infra/scripts/report_contract.py` ran the pinned Playwright CLI against six actual tests, using the same generated-config helper and reporter as the sandbox runtime. BrowserGrid parsed the resulting JSON and correctly classified passed, failed, flaky, skipped, expected-failure and timed-out cases. Assertions also checked retry history, error retention, nine real reporter attempt events and enforcement of the selected project/viewport over original configuration.
 
 A filtered passing run returned process exit code zero and one passing result. A separate test-file discovery exception returned nonzero, no test rows and a global error report. These three CLI executions use no report mocks and were executed locally; they do not launch a browser or exercise Docker, scheduling or storage. The configured runtime CI job now runs the same Python/Node interoperability script. It has not run remotely. Dependencies, frontend and Python business logic are unchanged; previous unit suites/audits/build were not repeated.
+
+## First GitHub validation
+
+The source was published after explicit approval to the public repository, preserving the nine incremental changes as commits with references to their original local IDs. The final uploaded Git tree matched the local source tree exactly. The [first CI run](https://github.com/The-Null-Catchers/BrowserGrid/actions/runs/37238102249) passed control-plane, PostgreSQL, runtime contracts, web build/audit and dependency/secret checks. PostgreSQL clean migrations and all seven contention tests ran successfully. Previous notes about absent remote execution describe the earlier authoring stage.
+
+Isolated browser acceptance initially stopped before builds because the pinned MinIO image could not be pulled from Docker Hub; a Quay attempt also returned an authorization error. The local storage service now builds official MinIO security-release source at an exact commit with a non-root runtime. The [source-build CI run](https://github.com/The-Null-Catchers/BrowserGrid/actions/runs/37238282547) built the images and started the stack, then failed at sandbox input transfer: Docker's archive API rejected the read-only rootfs despite the writable tmpfs.
+
+Input now streams through a non-root, unprivileged tar exec into `/work`, preserving the read-only rootfs, bounded tmpfs, capabilities and network policy. Local executor checks verify transfer metadata, readiness ordering, exit failures, bounded exec output and sandbox cleanup. These use Docker API doubles; the corrected actual Docker path must still pass. Browser, network and recovery acceptance are not certified merely because the other five jobs passed.

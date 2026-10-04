@@ -8,6 +8,8 @@ from browsergrid.execution.docker_backend import DockerExecutionBackend
 
 def test_sandbox_security_contract():
     client = MagicMock()
+    client.api.exec_start.return_value._sock.recv.return_value = b""
+    client.api.exec_inspect.return_value = {"Running": False, "ExitCode": 0}
     backend = DockerExecutionBackend(client)
     container = backend.create(
         ExecutionSpec("job", "lease", {}, {}, {"source/tests/test.ts": b"test"})
@@ -25,17 +27,45 @@ def test_sandbox_security_contract():
     assert kwargs["network"] == "browsergrid_sandbox"
     assert not any("TOKEN" in key or "SECRET" in key for key in kwargs["environment"])
     assert kwargs["mem_limit"] == kwargs["memswap_limit"] == "2g"
+    container.put_archive.assert_not_called()
+    transfer = client.api.exec_create.call_args.kwargs
+    assert transfer["user"] == "1000:1000" and transfer["privileged"] is False
+    assert "--directory=/work" in transfer["cmd"]
+    raw = client.api.exec_start.return_value._sock.sendall.call_args.args[0]
+    with tarfile.open(fileobj=io.BytesIO(raw)) as archive:
+        entries = archive.getmembers()
+        assert entries[-1].name == "ready"
+        assert all(item.uid == item.gid == 1000 for item in entries)
+        assert archive.extractfile("source/tests/test.ts").read() == b"test"
     backend.stop(container)
     container.remove.assert_called_with(force=True)
 
 
 def test_input_failure_removes_container():
     client = MagicMock()
-    client.containers.create.return_value.put_archive.side_effect = RuntimeError(
-        "Docker transfer failed"
-    )
+    client.api.exec_start.side_effect = RuntimeError("Docker transfer failed")
     with pytest.raises(RuntimeError):
         DockerExecutionBackend(client).create(ExecutionSpec("job", "lease", {}, {}, {}))
+    client.containers.create.return_value.remove.assert_called_with(force=True)
+
+
+@pytest.mark.parametrize("exit_code,running", [(1, False), (None, False), (0, True)])
+def test_input_extraction_failure_removes_container(exit_code, running):
+    client = MagicMock()
+    client.api.exec_start.return_value._sock.recv.return_value = b""
+    client.api.exec_inspect.return_value = {"Running": running, "ExitCode": exit_code}
+    with pytest.raises(RuntimeError, match="extraction failed"):
+        DockerExecutionBackend(client).create(ExecutionSpec("job", "lease", {}, {}, {}))
+    client.api.exec_start.return_value.close.assert_called_once()
+    client.containers.create.return_value.remove.assert_called_with(force=True)
+
+
+def test_input_transfer_output_is_bounded_and_cleans_up():
+    client = MagicMock()
+    client.api.exec_start.return_value._sock.recv.return_value = b"x" * 8192
+    with pytest.raises(RuntimeError, match="output exceeds limit"):
+        DockerExecutionBackend(client).create(ExecutionSpec("job", "lease", {}, {}, {}))
+    client.api.exec_start.return_value.close.assert_called_once()
     client.containers.create.return_value.remove.assert_called_with(force=True)
 
 
