@@ -34,6 +34,8 @@ def test_sandbox_security_contract():
     assert kwargs["network"] == "browsergrid_sandbox"
     assert not any("TOKEN" in key or "SECRET" in key for key in kwargs["environment"])
     assert kwargs["mem_limit"] == kwargs["memswap_limit"] == "2g"
+    work_flags = set(kwargs["tmpfs"]["/work"].split(","))
+    assert {"rw", "nosuid", "nodev", "exec"} <= work_flags
     container.put_archive.assert_not_called()
     transfer = client.api.exec_create.call_args.kwargs
     assert transfer["user"] == "1000:1000" and transfer["privileged"] is False

@@ -14,6 +14,7 @@ The container boundary reduces exposure; it is not a perfect hostile-code sandbo
 - Drop all capabilities; `no-new-privileges`; version-pinned upstream Playwright seccomp profile.
 - 2 CPU, 2 GiB RAM with equal swap limit, 256 PIDs.
 - 1 GiB `/work` tmpfs, 128 MiB `/tmp`, 256 MiB shared memory. These mounts also consume the memory allowance.
+- `/work` explicitly permits execution so repository-local CLI binaries and test dependencies can run. It remains `nosuid,nodev`, non-root and disposable. This is intentional untrusted-code execution inside the sandbox; the mount's execute flag provides no additional host privileges. `/tmp` retains Docker's default noexec behavior.
 - Timeout of 10–900 seconds, checked by the worker and scheduler, with an independent Docker watchdog enforcing the sandbox wall deadline.
 - Internal Docker bridge without direct internet egress; a separate host firewall guard restricts host and cross-bridge traffic. Proxy and fixture traffic remains available on the sandbox bridge.
 

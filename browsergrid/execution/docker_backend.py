@@ -34,7 +34,7 @@ class DockerExecutionBackend(ExecutionBackend):
             pids_limit=256,
             network=s.sandbox_network,
             tmpfs={
-                "/work": "rw,nosuid,nodev,size=1073741824,uid=1000,gid=1000,mode=0700",
+                "/work": "rw,nosuid,nodev,exec,size=1073741824,uid=1000,gid=1000,mode=0700",
                 "/tmp": "rw,nosuid,nodev,size=134217728,uid=1000,gid=1000,mode=1777",
             },
             shm_size="256m",
