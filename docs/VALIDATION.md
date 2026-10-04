@@ -4,7 +4,7 @@ Authoring date: 2026-10-04. This records executed checks, not expected results.
 
 | Check | Observed result |
 | --- | --- |
-| Python control-plane/security/scheduler/executor/worker unit suite | 85 passed; 1 PostgreSQL-specific test skipped |
+| Python control-plane/security/scheduler/executor/worker unit suite | 103 passed; 1 PostgreSQL-specific test skipped |
 | Ruff lint and formatting | Passed |
 | Next.js TypeScript check | Passed |
 | Next.js production build | Passed, version 15.5.27 |
@@ -36,3 +36,11 @@ Dependency audits reflect their current advisory databases and do not guarantee 
 Additional executed regressions cover duplicate worker-ID acquisition, cross-worker lease heartbeat rejection, bounded/consistent Playwright report parsing (including expected failures and flaky retries), and ZIP canonical paths, file collisions and required lockfiles. Malformed reports receive `RESULT_REPORT_INVALID` instead of a passed result.
 
 Eight firewall guard unit cases cover IPv4/IPv6 host and cross-bridge deny rule construction, read-only health checks, failed installation, invalid interface names and restoration ahead of an earlier accept rule. These checks do not establish live packet filtering. The new guard image has not been built here. Previously executed web build and dependency audits were not repeated because web/dependency files did not change in this follow-up.
+
+## Cancellation and retention follow-up
+
+Eighteen additional executed regressions verify independent sandbox removal during blocked artifact collection/upload, wall timeout, heartbeat outage and worker shutdown; expired preparation cannot create a sandbox. TAR validation now covers directory metadata as well as files, canonical names, duplicate entries, file/directory collisions, path/entry bounds and transport size before parsing.
+
+The scheduler runs artifact retention in a separate session/thread so stalled object storage does not block lease recovery. An object-specific deletion failure leaves its metadata for retry and does not prevent deletion of other expired objects. Both behaviors have executed regression checks.
+
+The real Docker smoke script now waits for the slow job to reach `running` before cancelling it and checks removal of its sandbox. That acceptance script remains unexecuted here. These worker tests use a deliberately stalled transport and backend double; they establish orchestration behavior, not real browser or Docker acceptance. Node/web/dependency checks were not rerun in this follow-up because their source/dependencies were unchanged.

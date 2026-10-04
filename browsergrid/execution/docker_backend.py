@@ -130,25 +130,46 @@ class DockerExecutionBackend(ExecutionBackend):
             data.write(chunk)
         data.seek(0)
         result = {}
+        seen = set()
         with tarfile.open(fileobj=data, mode="r:") as archive:
-            for item in archive:
+            for count, item in enumerate(archive, 1):
+                if count > 2000:
+                    raise ValueError("Too many artifact archive entries")
                 path = PurePosixPath(item.name)
-                if not item.isfile():
-                    if item.isdir():
-                        continue
-                    raise ValueError("Artifact links and special files rejected")
+                canonical = str(path)
+                expected = item.name.rstrip("/") if item.isdir() else item.name
                 if (
                     path.is_absolute()
                     or ".." in path.parts
                     or not path.parts
                     or path.parts[0] != "results"
                     or "\\" in item.name
+                    or "\0" in item.name
+                    or canonical != expected
+                    or len(canonical.encode()) > 500
+                    or any(len(part.encode()) > 255 for part in path.parts)
                 ):
                     raise ValueError("Unsafe artifact path")
-                if item.size > settings().max_artifact_bytes or len(result) >= 1000:
+                if canonical in seen:
+                    raise ValueError("Duplicate artifact archive entry")
+                seen.add(canonical)
+                if item.isdir():
+                    continue
+                if not item.isfile():
+                    raise ValueError("Artifact links and special files rejected")
+                if len(path.parts) < 2:
+                    raise ValueError("Invalid artifact root file")
+                if (
+                    item.size < 0
+                    or item.size > settings().max_artifact_bytes
+                    or len(result) >= 1000
+                ):
                     raise ValueError("Artifact limit exceeded")
                 content = archive.extractfile(item).read(item.size + 1)
                 if len(content) != item.size:
                     raise ValueError("Incomplete artifact")
                 result[str(PurePosixPath(*path.parts[1:]))] = content
+        for name in result:
+            if any(str(parent) in result for parent in PurePosixPath(name).parents):
+                raise ValueError("Artifact file/directory collision")
         return result

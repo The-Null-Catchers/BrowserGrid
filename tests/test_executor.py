@@ -79,3 +79,66 @@ def test_fragmented_stdout_stays_bounded():
     assert lines[1] == "hello\n"
     assert all(len(line.encode()) <= 1000 for line in lines)
     assert sum(len(line) for line in lines[2:]) == 100_000
+
+
+@pytest.mark.parametrize(
+    "name,type",
+    [
+        ("results//report.json", tarfile.REGTYPE),
+        ("results/./report.json", tarfile.REGTYPE),
+        ("results", tarfile.REGTYPE),
+        ("elsewhere", tarfile.DIRTYPE),
+        ("results/../elsewhere", tarfile.DIRTYPE),
+        ("results/" + "x" * 256, tarfile.REGTYPE),
+    ],
+)
+def test_artifact_names_and_directory_metadata_are_validated(name, type):
+    container = MagicMock()
+    container.get_archive.return_value = ([tar_item(name, type=type)], {})
+    with pytest.raises(ValueError):
+        DockerExecutionBackend(MagicMock()).artifacts(container)
+
+
+def tar_entries(names):
+    out = io.BytesIO()
+    with tarfile.open(fileobj=out, mode="w") as archive:
+        for name in names:
+            info = tarfile.TarInfo(name)
+            info.size = 1
+            archive.addfile(info, io.BytesIO(b"x"))
+    return out.getvalue()
+
+
+@pytest.mark.parametrize(
+    "names",
+    [["results/report.json", "results/report.json"], ["results/test", "results/test/image.png"]],
+)
+def test_artifact_duplicate_and_file_directory_collision_rejected(names):
+    container = MagicMock()
+    container.get_archive.return_value = ([tar_entries(names)], {})
+    with pytest.raises(ValueError):
+        DockerExecutionBackend(MagicMock()).artifacts(container)
+
+
+def test_artifact_transport_limit_before_parsing(monkeypatch):
+    import browsergrid.execution.docker_backend as executor
+    from types import SimpleNamespace
+
+    monkeypatch.setattr(executor, "settings", lambda: SimpleNamespace(max_run_artifacts_bytes=8))
+    container = MagicMock()
+    container.get_archive.return_value = ([b"12345", b"67890"], {})
+    with pytest.raises(ValueError, match="transport limit"):
+        DockerExecutionBackend(MagicMock()).artifacts(container)
+
+
+def test_artifact_entry_limit_counts_directories():
+    out = io.BytesIO()
+    with tarfile.open(fileobj=out, mode="w") as archive:
+        for index in range(2001):
+            item = tarfile.TarInfo(f"results/directory-{index}")
+            item.type = tarfile.DIRTYPE
+            archive.addfile(item)
+    container = MagicMock()
+    container.get_archive.return_value = ([out.getvalue()], {})
+    with pytest.raises(ValueError, match="Too many"):
+        DockerExecutionBackend(MagicMock()).artifacts(container)

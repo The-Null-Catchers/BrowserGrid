@@ -4,6 +4,7 @@ import json
 import http.cookiejar
 import os
 import secrets
+import subprocess
 import time
 import urllib.request
 
@@ -98,6 +99,36 @@ slow = request(
         },
     },
 )
+# Exercise cancellation of a launched browser, not only a queued job.
+for _ in range(60):
+    active = request(f"/api/v1/runs/{slow['id']}")
+    assert active["status"] not in {"failed", "infrastructure_failed", "timed_out", "passed"}, (
+        active
+    )
+    if any(job["status"] == "running" for job in active["jobs"]):
+        break
+    time.sleep(0.5)
+else:
+    raise AssertionError("Slow execution never reached running")
 request(f"/api/v1/runs/{slow['id']}/cancel", {})
 assert wait(slow["id"])["status"] == "cancelled"
+for _ in range(20):
+    remaining = subprocess.check_output(
+        [
+            "docker",
+            "ps",
+            "-aq",
+            "--filter",
+            "label=browsergrid.sandbox=true",
+            "--filter",
+            f"label=browsergrid.job_id={active['jobs'][0]['id']}",
+        ],
+        text=True,
+        timeout=15,
+    ).strip()
+    if not remaining:
+        break
+    time.sleep(0.5)
+else:
+    raise AssertionError("Cancelled execution left its sandbox behind")
 print("Real browser matrix, artifacts, failure classification and cancellation passed.")

@@ -54,7 +54,7 @@ For local scaling, `docker compose up --scale worker=2 -d` uses the same trusted
 
 `/health` checks process liveness. `/ready` checks PostgreSQL, Redis and the configured S3 bucket. It does not claim that a browser worker is available. The worker page shows persisted heartbeat health to workspace Owners/Admins.
 
-The scheduler sweeps stale leases every five seconds and expired artifacts every minute. It deletes objects before removing their metadata, retrying storage failures. An independent Docker watchdog checks sandbox deadlines every two seconds. Prometheus/Grafana and OpenTelemetry remain on the release roadmap.
+The scheduler sweeps stale leases every five seconds. A separate retention thread sweeps expired artifacts every minute after each completed cleanup; slow storage does not pause recovery. It deletes objects before removing their metadata, leaving failed objects for retry while processing other expired records. An independent Docker watchdog checks sandbox deadlines every two seconds. Prometheus/Grafana and OpenTelemetry remain on the release roadmap.
 
 For a **disposable test stack only**, run `python infra/scripts/recovery_e2e.py --disposable-stack` after the main E2E. This intentionally kills/stops the worker and verifies stale-lease recovery, reaping and watchdog-only timeout; it must not be run against an active shared deployment.
 

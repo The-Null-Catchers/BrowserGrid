@@ -60,15 +60,32 @@ def execute(backend, worker_id, job_id, token):
     redactor = Redactor([])
 
     def beat():
-        while not stop.wait(3):
-            try:
-                with session_factory()() as db:
-                    if not heartbeat(db, worker_id, job_id, token):
-                        cancelled.set()
-                        return
-            except Exception:
-                # Fail closed: stop jobs whose lease cannot be confirmed.
-                lost.set()
+        next_heartbeat = time.monotonic() + 3
+        while not stop.wait(0.5):
+            clock = time.monotonic()
+            abort = shutdown.is_set() or cancelled.is_set() or lost.is_set() or clock >= deadline
+            if not abort and clock >= next_heartbeat:
+                try:
+                    with session_factory()() as db:
+                        if not heartbeat(db, worker_id, job_id, token):
+                            cancelled.set()
+                            abort = True
+                except Exception:
+                    # Fail closed: stop jobs whose lease cannot be confirmed.
+                    lost.set()
+                    abort = True
+                next_heartbeat = clock + 3
+            if abort:
+                # A blocked artifact read/upload must not keep the browser alive.
+                # Removing a container is idempotent even if the main thread also exits.
+                if container:
+                    try:
+                        backend.stop(container)
+                    except Exception:
+                        log.exception(
+                            "Sandbox stop failed job_id=%s worker_id=%s", job_id, worker_id
+                        )
+                        continue
                 return
 
     thread = threading.Thread(target=beat, daemon=True)
@@ -104,6 +121,12 @@ def execute(backend, worker_id, job_id, token):
             db.commit()
         if cancelled.is_set() or shutdown.is_set():
             state(job_id, token, "cancelled")
+            return
+        if lost.is_set():
+            state(job_id, token, "infrastructure_failed", "LEASE_LOST")
+            return
+        if time.monotonic() >= deadline:
+            state(job_id, token, "timed_out", "RUN_TIMEOUT")
             return
         container = backend.create(
             ExecutionSpec(
@@ -222,6 +245,13 @@ def execute(backend, worker_id, job_id, token):
                 return
         state(job_id, token, "uploading_artifacts")
         artifacts = backend.artifacts(container)
+        if cancelled.is_set() or shutdown.is_set():
+            state(job_id, token, "cancelled")
+            return
+        if time.monotonic() >= deadline:
+            raise TimeoutError("Artifact collection deadline exceeded")
+        if lost.is_set():
+            raise RuntimeError("Lease confirmation lost")
         report = artifacts.get("report.json")
         if not report:
             state(job_id, token, "infrastructure_failed", "RESULT_REPORT_MISSING")
@@ -293,6 +323,8 @@ def execute(backend, worker_id, job_id, token):
             storage.put(key, data, mime)
             if time.monotonic() > deadline:
                 raise TimeoutError("Artifact upload deadline exceeded")
+            if lost.is_set():
+                raise RuntimeError("Lease confirmation lost")
             with session_factory()() as db:
                 job = leased_job(db, job_id, token)
                 if db.get(Run, job.run_id).cancel_requested:
@@ -311,8 +343,12 @@ def execute(backend, worker_id, job_id, token):
                 or any(t["status"] in {"failed", "timed_out"} for t in tests)
                 else "passed"
             )
-            if db.get(Run, job.run_id).cancel_requested:
+            if db.get(Run, job.run_id).cancel_requested or cancelled.is_set() or shutdown.is_set():
                 final = "cancelled"
+            if lost.is_set() and final != "cancelled":
+                transition(db, job, "infrastructure_failed", "LEASE_LOST")
+                db.commit()
+                return
             transition(db, job, final, "TEST_FAILED" if final == "failed" else None)
             worker = db.get(Worker, worker_id)
             worker.completed += 1
@@ -326,8 +362,12 @@ def execute(backend, worker_id, job_id, token):
     except Exception:
         log.exception("Execution failed job_id=%s worker_id=%s", job_id, worker_id)
         try:
-            if time.monotonic() >= deadline:
+            if cancelled.is_set() or shutdown.is_set():
+                state(job_id, token, "cancelled")
+            elif time.monotonic() >= deadline:
                 state(job_id, token, "timed_out", "RUN_TIMEOUT")
+            elif lost.is_set():
+                state(job_id, token, "infrastructure_failed", "LEASE_LOST")
             else:
                 state(job_id, token, "infrastructure_failed", "EXECUTION_INFRASTRUCTURE_ERROR")
         except Exception:

@@ -1,5 +1,6 @@
 import logging
-import time
+import signal
+import threading
 from sqlalchemy import select
 from browsergrid import storage
 from browsergrid.db import session_factory
@@ -18,25 +19,48 @@ def cleanup(db):
         .with_for_update(skip_locked=True)
     ):
         # Delete object before metadata; failures are retried next sweep.
-        storage.delete(artifact.key)
+        try:
+            storage.delete(artifact.key)
+        except Exception:
+            log.exception("Artifact deletion failed artifact_id=%s", artifact.id)
+            continue
         db.delete(artifact)
     db.commit()
 
 
-def main():
-    logging.basicConfig(level=logging.INFO)
-    tick = 0
-    while True:
+def retention_loop(stop):
+    while not stop.is_set():
         try:
             with session_factory()() as db:
-                recover(db)
-            if tick % 12 == 0:
-                with session_factory()() as db:
-                    cleanup(db)
+                cleanup(db)
         except Exception:
-            log.exception("Scheduler sweep failed")
-        tick += 1
-        time.sleep(5)
+            log.exception("Artifact retention sweep failed")
+        stop.wait(60)
+
+
+def run(stop):
+    # Object-store latency must never delay stale-lease recovery or job timeouts.
+    retention = threading.Thread(target=retention_loop, args=(stop,), daemon=True)
+    retention.start()
+    try:
+        while not stop.is_set():
+            try:
+                with session_factory()() as db:
+                    recover(db)
+            except Exception:
+                log.exception("Scheduler recovery sweep failed")
+            stop.wait(5)
+    finally:
+        stop.set()
+        retention.join(timeout=1)
+
+
+def main():
+    logging.basicConfig(level=logging.INFO)
+    stop = threading.Event()
+    for sig in (signal.SIGTERM, signal.SIGINT):
+        signal.signal(sig, lambda *_: stop.set())
+    run(stop)
 
 
 if __name__ == "__main__":

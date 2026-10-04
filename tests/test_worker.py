@@ -188,3 +188,129 @@ def test_malformed_report_has_specific_infrastructure_error(db, monkeypatch):
     assert db.get(Run, rid).status == "infrastructure_failed"
     assert db.get(Job, jid).error_code == "RESULT_REPORT_INVALID"
     assert backend.stopped
+
+
+class InterruptibleBackend(Backend):
+    def __init__(self):
+        super().__init__()
+        import threading
+
+        self.removed = threading.Event()
+
+    def stop(self, container):
+        super().stop(container)
+        self.removed.set()
+
+
+def test_monitor_kills_sandbox_while_upload_is_blocked(db, monkeypatch):
+    import browsergrid.worker as worker
+
+    rid, jid, token = prepare(db, monkeypatch)
+    backend = InterruptibleBackend()
+
+    def blocked_upload(*args):
+        with worker.session_factory()() as other:
+            other.get(Run, rid).cancel_requested = True
+            other.commit()
+        assert backend.removed.wait(6), "cancellation waited for storage upload"
+        assert backend.stopped
+        raise OSError("upload interrupted after cancellation")
+
+    monkeypatch.setattr(worker.storage, "put", blocked_upload)
+    execute(backend, "worker-unit", jid, token)
+    db.expire_all()
+    assert db.get(Run, rid).status == "cancelled"
+
+
+def test_monitor_kills_sandbox_on_deadline_during_upload(db, monkeypatch):
+    import browsergrid.worker as worker
+    from browsergrid.models import now
+    from datetime import timedelta
+
+    rid, jid, token = prepare(db, monkeypatch)
+    db.get(Job, jid).started_at = now() - timedelta(seconds=9)
+    db.commit()
+    backend = InterruptibleBackend()
+
+    def blocked_upload(*args):
+        assert backend.removed.wait(4), "wall timeout waited for storage upload"
+
+    monkeypatch.setattr(worker.storage, "put", blocked_upload)
+    execute(backend, "worker-unit", jid, token)
+    db.expire_all()
+    assert db.get(Run, rid).status == "timed_out"
+    assert db.get(Job, jid).error_code == "RUN_TIMEOUT"
+
+
+def test_monitor_lease_outage_during_upload_cannot_pass(db, monkeypatch):
+    import browsergrid.worker as worker
+
+    rid, jid, token = prepare(db, monkeypatch)
+    backend = InterruptibleBackend()
+
+    def unavailable(*args):
+        raise OSError("heartbeat database outage")
+
+    def blocked_upload(*args):
+        assert backend.removed.wait(6), "lease loss did not stop sandbox"
+
+    monkeypatch.setattr(worker, "heartbeat", unavailable)
+    monkeypatch.setattr(worker.storage, "put", blocked_upload)
+    execute(backend, "worker-unit", jid, token)
+    db.expire_all()
+    assert db.get(Run, rid).status == "infrastructure_failed"
+    assert db.get(Job, jid).error_code == "LEASE_LOST"
+
+
+def test_cancellation_interrupts_artifact_collection(db, monkeypatch):
+    import browsergrid.worker as worker
+
+    rid, jid, token = prepare(db, monkeypatch)
+    backend = InterruptibleBackend()
+
+    def blocked_collection(container):
+        with worker.session_factory()() as other:
+            other.get(Run, rid).cancel_requested = True
+            other.commit()
+        assert backend.removed.wait(6), "cancellation waited for artifact transfer"
+        raise OSError("Docker archive stream interrupted")
+
+    monkeypatch.setattr(backend, "artifacts", blocked_collection)
+    execute(backend, "worker-unit", jid, token)
+    db.expire_all()
+    assert db.get(Run, rid).status == "cancelled"
+
+
+def test_shutdown_interrupts_upload_and_cannot_pass(db, monkeypatch):
+    import browsergrid.worker as worker
+    import threading
+
+    monkeypatch.setattr(worker, "shutdown", threading.Event())
+    rid, jid, token = prepare(db, monkeypatch)
+    backend = InterruptibleBackend()
+
+    def blocked_upload(*args):
+        worker.shutdown.set()
+        assert backend.removed.wait(2), "shutdown waited for storage upload"
+
+    monkeypatch.setattr(worker.storage, "put", blocked_upload)
+    execute(backend, "worker-unit", jid, token)
+    db.expire_all()
+    assert db.get(Run, rid).status == "cancelled"
+
+
+def test_expired_preparation_does_not_create_sandbox(db, monkeypatch):
+    from datetime import timedelta
+    from unittest.mock import Mock
+    from browsergrid.models import now
+
+    rid, jid, token = prepare(db, monkeypatch)
+    db.get(Job, jid).started_at = now() - timedelta(seconds=11)
+    db.commit()
+    backend = Backend()
+    create = Mock(wraps=backend.create)
+    monkeypatch.setattr(backend, "create", create)
+    execute(backend, "worker-unit", jid, token)
+    create.assert_not_called()
+    db.expire_all()
+    assert db.get(Run, rid).status == "timed_out"
