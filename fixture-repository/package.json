@@ -1,0 +1,1 @@
+{"name":"browsergrid-runtime","version":"0.1.0","private":true,"dependencies":{"@playwright/test":"1.58.2"}}

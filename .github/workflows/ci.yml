@@ -68,6 +68,9 @@ jobs:
         with: {python-version: '3.13'}
       - run: cp .env.example .env && docker compose up --build -d
       - run: python infra/scripts/e2e.py
+        env:
+          BG_E2E_COMMIT: ${{ github.sha }}
+          BG_E2E_REPOSITORY: https://github.com/${{ github.repository }}
       - run: python infra/scripts/network_e2e.py --disposable-stack
       - run: python infra/scripts/recovery_e2e.py --disposable-stack
       - if: always()

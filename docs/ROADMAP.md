@@ -8,7 +8,7 @@ The requested product spans ten phases. This source delivery has a verified exec
 | 2. Execution core | DB queue, leases, concurrency, Docker executor, Chromium runtime, explicit states | Real API/queue/worker/Docker/Playwright path passed for inline and uploaded ZIP; external Git checkout acceptance pending |
 | 3. Results | JSON results, retries/flaky classification, private artifacts, failure/log display | Parser/file checks and real result/artifact capture/download passed; richer result UI pending |
 | 4. Realtime | SSE replay, timeline, bounded logs, cancellation, lease recovery | State/security tests and live cancellation/worker-loss/watchdog recovery passed; browser UI streaming acceptance pending |
-| 5. Browser matrix | Chromium/Firefox/WebKit configuration, viewport matrix | Real three-browser run passed; multi-viewport live acceptance pending |
+| 5. Browser matrix | Chromium/Firefox/WebKit configuration, viewport matrix | Real six-job browser/viewport matrix passed; PNG dimensions verified |
 | 6. Debugging | Video/trace/screenshots; instrumented page console/network JSON | Actual capture/download and expected console/network content passed; full viewers/filters pending |
 | 7. Quality | Fixture includes deterministic accessibility/visual/network cases | Axe scans, responsive URL mode and performance metrics not implemented |
 | 8. Visual testing | No fabricated baselines or diffs | Baselines, pixel comparison and approvals not implemented |
@@ -19,7 +19,7 @@ Other unfinished requirements include email verification/reset, invitation lifec
 
 ## Next acceptance and delivery work
 
-1. Extend actual execution acceptance to multiple viewports and a pinned public Git repository.
+1. Run the added pinned public Git checkout and missing-commit acceptance in CI. Multiple viewports already passed in [CI run 37240669670](https://github.com/The-Null-Catchers/BrowserGrid/actions/runs/37240669670).
 2. Add dashboard browser E2E for account/project creation, live results, failure inspection and cancellation; capture portfolio screenshots from those verified flows.
 3. Add axe accessibility scans, responsive URL captures and measured performance data incrementally, with real fixture acceptance for each.
 4. Expand live network probes to private control-plane services, IPv6, UDP and DNS rebinding; rerun existing host/DNAT/metadata probes on each deployment host.

@@ -186,6 +186,71 @@ link = request(f"/api/v1/artifacts/{shots[0]['id']}/download")
 with urllib.request.urlopen(link["url"], timeout=20) as response:
     assert response.read(8) == b"\x89PNG\r\n\x1a\n"
 
+# Public Git is fetched by the non-root sandbox through restricted egress, never by the API.
+# CI supplies its exact checkout SHA; local acceptance uses the committed source tree.
+git_commit = os.getenv("BG_E2E_COMMIT") or subprocess.check_output(
+    ["git", "rev-parse", "HEAD"], cwd=root, text=True, timeout=10
+).strip()
+git_repository = os.getenv("BG_E2E_REPOSITORY", "https://github.com/The-Null-Catchers/BrowserGrid")
+git_source = {"type": "git", "repository": git_repository, "commit": git_commit}
+git_run = request(
+    "/api/v1/runs",
+    {
+        "project_id": project["id"],
+        "config": {
+            "source": git_source,
+            "working_directory": "fixture-repository",
+            "viewports": [{"name": "git-desktop", "width": 1024, "height": 768}],
+            "screenshot": "on",
+            "video": "off",
+            "trace": "off",
+        },
+    },
+)
+git_result = wait(git_run["id"])
+assert git_result["status"] == "passed", git_result
+assert len(git_result["jobs"]) == 1
+assert git_result["jobs"][0]["runtime"]["commit"] == git_commit
+assert git_result["jobs"][0]["runtime"].get("browser_version"), git_result
+assert len(request(f"/api/v1/runs/{git_run['id']}/tests")) == 1
+git_artifacts = request(f"/api/v1/runs/{git_run['id']}/artifacts?limit=100")
+verify_browser_logs(git_result, git_artifacts)
+checkout_verified, git_screenshot_verified = False, False
+for artifact in git_artifacts:
+    if (
+        Path(artifact["name"]).name.startswith("checkout-json-")
+        and artifact["name"].endswith(".json")
+    ):
+        link = request(f"/api/v1/artifacts/{artifact['id']}/download")
+        with urllib.request.urlopen(link["url"], timeout=20) as response:
+            checkout = json.loads(response.read(4096))
+        assert checkout == {"commit": git_commit.lower(), "fixture": "pinned-git-fixture"}
+        checkout_verified = True
+    elif artifact["kind"] == "screenshot":
+        link = request(f"/api/v1/artifacts/{artifact['id']}/download")
+        with urllib.request.urlopen(link["url"], timeout=20) as response:
+            header = response.read(24)
+        assert header[:8] == b"\x89PNG\r\n\x1a\n" and header[12:16] == b"IHDR"
+        assert struct.unpack(">II", header[16:24]) == (1024, 768)
+        git_screenshot_verified = True
+assert checkout_verified and git_screenshot_verified, git_artifacts
+# An unavailable immutable commit must be an infrastructure failure, with no test results.
+missing_git = request(
+    "/api/v1/runs",
+    {
+        "project_id": project["id"],
+        "config": {
+            "source": {**git_source, "commit": "0" * 40},
+            "working_directory": "fixture-repository",
+            "timeout_seconds": 60,
+        },
+    },
+)
+missing_result = wait(missing_git["id"])
+assert missing_result["status"] == "infrastructure_failed", missing_result
+assert missing_result["jobs"][0]["error_code"] == "REPOSITORY_CLONE_FAILED", missing_result
+assert request(f"/api/v1/runs/{missing_git['id']}/tests") == []
+
 failed = request(
     "/api/v1/runs",
     {
@@ -246,5 +311,5 @@ else:
     raise AssertionError("Cancelled execution left its sandbox behind")
 print(
     "Real six-job browser/viewport matrix, PNG dimensions, uploaded bundle, artifacts, "
-    "failure classification and cancellation passed."
+    "pinned public Git checkout, missing-commit rejection, failure classification and cancellation passed."
 )
