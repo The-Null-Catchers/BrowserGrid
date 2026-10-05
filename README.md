@@ -2,7 +2,7 @@
 
 Self-hosted browser execution infrastructure: a FastAPI control plane, a transactional job queue, disposable Docker browser sandboxes, and a Next.js operations dashboard.
 
-**Status: working execution core, not a production release.** No execution results are fabricated. [All six CI jobs passed](https://github.com/The-Null-Catchers/BrowserGrid/actions/runs/37240077248), including real isolated Chromium/Firefox/WebKit runs, uploaded bundles, artifacts, cancellation, limited network escape probes and worker-loss/watchdog recovery. See [validation evidence](docs/VALIDATION.md) and [delivery scope](docs/ROADMAP.md) for remaining requirements.
+**Status: working execution core, not a production release.** No execution results are fabricated. [All six CI jobs passed](https://github.com/The-Null-Catchers/BrowserGrid/actions/runs/37341003027), including real isolated Chromium/Firefox/WebKit viewport matrix runs, pinned public Git checkout, uploaded bundles, artifacts, cancellation, limited network escape probes and worker-loss/watchdog recovery. See [validation evidence](docs/VALIDATION.md) and [delivery scope](docs/ROADMAP.md) for remaining requirements.
 
 ## Local setup
 

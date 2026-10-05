@@ -5,7 +5,7 @@ The requested product spans ten phases. This source delivery has a verified exec
 | Phase | Implementation status | Acceptance status |
 | --- | --- | --- |
 | 1. Foundation | API, sessions, RBAC, workspace/project creation, database migration, Redis, Compose, dashboard | Unit/build checks, clean PostgreSQL migrations and fresh Compose startup passed; dashboard browser E2E pending |
-| 2. Execution core | DB queue, leases, concurrency, Docker executor, Chromium runtime, explicit states | Real API/queue/worker/Docker/Playwright path passed for inline and uploaded ZIP; external Git checkout acceptance pending |
+| 2. Execution core | DB queue, leases, concurrency, Docker executor, Chromium runtime, explicit states | Real API/queue/worker/Docker/Playwright path passed for inline and uploaded ZIP; pinned public Git checkout and missing-commit rejection passed |
 | 3. Results | JSON results, retries/flaky classification, private artifacts, failure/log display | Parser/file checks and real result/artifact capture/download passed; richer result UI pending |
 | 4. Realtime | SSE replay, timeline, bounded logs, cancellation, lease recovery | State/security tests and live cancellation/worker-loss/watchdog recovery passed; browser UI streaming acceptance pending |
 | 5. Browser matrix | Chromium/Firefox/WebKit configuration, viewport matrix | Real six-job browser/viewport matrix passed; PNG dimensions verified |
@@ -19,11 +19,10 @@ Other unfinished requirements include email verification/reset, invitation lifec
 
 ## Next acceptance and delivery work
 
-1. Run the added pinned public Git checkout and missing-commit acceptance in CI. Multiple viewports already passed in [CI run 37240669670](https://github.com/The-Null-Catchers/BrowserGrid/actions/runs/37240669670).
-2. Add dashboard browser E2E for account/project creation, live results, failure inspection and cancellation; capture portfolio screenshots from those verified flows.
-3. Add axe accessibility scans, responsive URL captures and measured performance data incrementally, with real fixture acceptance for each.
-4. Expand live network probes to private control-plane services, IPv6, UDP and DNS rebinding; rerun existing host/DNAT/metadata probes on each deployment host.
-5. Implement visual baseline comparison and approval after the quality execution paths are stable.
-6. Complete lifecycle deletion, image scanning, observability and the remaining foundation/integration requirements before a production release.
+1. Add dashboard browser E2E for account/project creation, live results, failure inspection and cancellation; capture portfolio screenshots from those verified flows.
+2. Add axe accessibility scans, responsive URL captures and measured performance data incrementally, with real fixture acceptance for each.
+3. Expand live network probes to private control-plane services, IPv6, UDP and DNS rebinding; rerun existing host/DNAT/metadata probes on each deployment host.
+4. Implement visual baseline comparison and approval after the quality execution paths are stable.
+5. Complete lifecycle deletion, image scanning, observability and the remaining foundation/integration requirements before a production release.
 
 No phase is certified complete while its required integration tests remain unexecuted.
