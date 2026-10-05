@@ -8,8 +8,10 @@ test('pinned public Git checkout', async ({ page }, testInfo) => {
   expect(commit).toBe(input.config.source.commit.toLowerCase());
   expect(testInfo.config.metadata.acceptance).toBe('pinned-git-fixture');
   expect(page.viewportSize()).toEqual({ width: 1024, height: 768 });
+  const checkoutPath = testInfo.outputPath('checkout.json');
+  fs.writeFileSync(checkoutPath, JSON.stringify({ commit, fixture: 'pinned-git-fixture' }));
   await testInfo.attach('checkout.json', {
-    body: Buffer.from(JSON.stringify({ commit, fixture: 'pinned-git-fixture' })),
+    path: checkoutPath,
     contentType: 'application/json'
   });
   await page.goto('http://fixture-app:8080');

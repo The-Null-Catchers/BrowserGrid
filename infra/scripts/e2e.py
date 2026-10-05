@@ -188,9 +188,12 @@ with urllib.request.urlopen(link["url"], timeout=20) as response:
 
 # Public Git is fetched by the non-root sandbox through restricted egress, never by the API.
 # CI supplies its exact checkout SHA; local acceptance uses the committed source tree.
-git_commit = os.getenv("BG_E2E_COMMIT") or subprocess.check_output(
-    ["git", "rev-parse", "HEAD"], cwd=root, text=True, timeout=10
-).strip()
+git_commit = (
+    os.getenv("BG_E2E_COMMIT")
+    or subprocess.check_output(
+        ["git", "rev-parse", "HEAD"], cwd=root, text=True, timeout=10
+    ).strip()
+)
 git_repository = os.getenv("BG_E2E_REPOSITORY", "https://github.com/The-Null-Catchers/BrowserGrid")
 git_source = {"type": "git", "repository": git_repository, "commit": git_commit}
 git_run = request(
@@ -217,9 +220,8 @@ git_artifacts = request(f"/api/v1/runs/{git_run['id']}/artifacts?limit=100")
 verify_browser_logs(git_result, git_artifacts)
 checkout_verified, git_screenshot_verified = False, False
 for artifact in git_artifacts:
-    if (
-        Path(artifact["name"]).name.startswith("checkout-json-")
-        and artifact["name"].endswith(".json")
+    if Path(artifact["name"]).name.startswith("checkout-json-") and artifact["name"].endswith(
+        ".json"
     ):
         link = request(f"/api/v1/artifacts/{artifact['id']}/download")
         with urllib.request.urlopen(link["url"], timeout=20) as response:
