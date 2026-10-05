@@ -60,6 +60,10 @@ test('account, project, live real run, failure evidence, mobile cancellation and
   const password = randomUUID() + '-secure';
   const workspace = `UI workspace ${randomUUID().slice(0, 8)}`;
   const errors = [];
+  const streams = [];
+  page.on('response', response => {
+    if (response.url().endsWith('/events')) streams.push(response);
+  });
   page.on('pageerror', error => errors.push(error.message));
   await page.goto('/');
   await page.getByRole('button', {name: 'New to BrowserGrid? Create an account'}).click();
@@ -91,6 +95,10 @@ test('account, project, live real run, failure evidence, mobile cancellation and
   await page.getByRole('button', {name: 'Logs', exact: true}).click();
   await expect(page.getByRole('log', {name: 'Execution events'})).toContainText('dashboard live output smoke');
   await expect(page.locator('.live')).toHaveText('LIVE');
+  expect(streams.length).toBeGreaterThan(0);
+  const headers = await streams[0].allHeaders();
+  expect(headers['cache-control']).toContain('no-transform');
+  expect(headers['content-encoding']).toBeUndefined();
   await page.screenshot({path: info.outputPath('live-run.png'), fullPage: true});
   // No page reload or API polling to update UI state: SSE must drive completion.
   await expect(page.getByRole('status', {name: 'Run status'})).toHaveText(/passed/i, {timeout: 90000});

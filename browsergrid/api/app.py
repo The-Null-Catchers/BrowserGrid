@@ -62,6 +62,10 @@ async def headers(request, call_next):
             "X-Request-ID": str(uuid.uuid4()),
         }
     )
+    # Compression proxies can buffer tiny SSE chunks until the run has ended.
+    # Preserve immediate events while retaining compression for ordinary responses.
+    if response.headers.get("content-type", "").startswith("text/event-stream"):
+        response.headers["Cache-Control"] = "no-store, no-transform"
     return response
 
 
