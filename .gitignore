@@ -11,3 +11,5 @@ playwright-report/
 test-results/
 *.db
 *.egg-info/
+
+dashboard-evidence/

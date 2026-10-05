@@ -112,6 +112,7 @@ make test-runtime
 make lint
 # With the Compose stack running:
 make e2e
+make e2e-dashboard
 ```
 
 `make test-runtime` installs the pinned runtime packages, runs Node contracts and executes actual Playwright tests without browser fixtures. It exercises the generated config and reporter through BrowserGrid's Python report parser, including retries, expected failures, skipped tests, timeouts and discovery errors. This validates interoperability without launching a browser; it does not substitute for isolated browser E2E.

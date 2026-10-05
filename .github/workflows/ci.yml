@@ -66,11 +66,18 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: {python-version: '3.13'}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm ci
+        working-directory: runtimes
+      - run: npx playwright install --with-deps chromium
+        working-directory: runtimes
       - run: cp .env.example .env && docker compose up --build -d
       - run: python infra/scripts/e2e.py
         env:
           BG_E2E_COMMIT: ${{ github.sha }}
           BG_E2E_REPOSITORY: https://github.com/${{ github.repository }}
+      - run: node runtimes/node_modules/playwright/cli.js test --config infra/dashboard-tests/playwright.config.cjs
       - run: python infra/scripts/network_e2e.py --disposable-stack
       - run: python infra/scripts/recovery_e2e.py --disposable-stack
       - if: always()
@@ -78,6 +85,9 @@ jobs:
       - if: always()
         uses: actions/upload-artifact@v4
         with: {name: execution-evidence, path: compose-e2e.log}
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with: {name: dashboard-evidence, path: dashboard-evidence/, if-no-files-found: warn}
       - if: always()
         run: docker compose down -v
   dependency-security:
