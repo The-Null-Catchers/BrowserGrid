@@ -188,3 +188,19 @@ def test_pending_artifacts_are_hidden_and_not_downloadable(client, account, db):
     db.commit()
     assert client.get(f"/api/v1/runs/{rid}/artifacts").json() == []
     assert client.get(f"/api/v1/artifacts/{artifact.id}/download").status_code == 409
+
+
+def test_terminal_sse_replay_disables_proxy_transformation(client, account, db, monkeypatch):
+    import browsergrid.api.app as api_module
+
+    _, project = account
+    rid = client.post("/api/v1/runs", json=payload(project)).json()["id"]
+    assert client.post(f"/api/v1/runs/{rid}/cancel", json={}).status_code == 200
+    monkeypatch.setattr(api_module, "session_factory", lambda: lambda: db)
+    response = client.get(f"/api/v1/runs/{rid}/events", headers={"Accept-Encoding": "gzip"})
+    assert response.status_code == 200
+    assert response.headers["cache-control"] == "no-store, no-transform"
+    assert response.headers["x-accel-buffering"] == "no"
+    assert "event: state" in response.text
+    assert "event: complete" in response.text
+    assert client.get("/health").headers["cache-control"] == "no-store"

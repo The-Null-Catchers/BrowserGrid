@@ -1,4 +1,4 @@
-.PHONY: dev test test-runtime lint e2e migrate install
+.PHONY: dev test test-runtime lint e2e e2e-dashboard migrate install
 install:
 	python -m pip install -r requirements.lock
 	python -m pip install -e . --no-deps
@@ -24,3 +24,7 @@ migrate:
 
 e2e:
 	python infra/scripts/e2e.py
+
+e2e-dashboard:
+	cd runtimes && npm ci && npx playwright install --with-deps chromium
+	node runtimes/node_modules/playwright/cli.js test --config infra/dashboard-tests/playwright.config.cjs
