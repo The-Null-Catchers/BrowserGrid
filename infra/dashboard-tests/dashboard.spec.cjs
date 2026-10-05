@@ -130,6 +130,7 @@ test('account, project, live real run, failure evidence, mobile cancellation and
   await newRun(page, "import {test,expect} from '@playwright/test';test('dashboard intentional failure',async({page})=>{await page.goto('http://fixture-app:8080');expect('actual').toBe('EXPECTED_UI_FAILURE');});");
   await expect(page.getByRole('status', {name: 'Run status'})).toHaveText(/failed/i, {timeout: 90000});
   await expect(page.locator('.failure')).toContainText('EXPECTED_UI_FAILURE');
+  await expect(page.locator('.failure')).not.toContainText('\u001b');
   await expect(page.locator('.testRow')).toHaveAttribute('open', '');
   await page.screenshot({path: info.outputPath('failure-details.png'), fullPage: true});
 
@@ -139,6 +140,7 @@ test('account, project, live real run, failure evidence, mobile cancellation and
   await expect(page.locator('.job .badge')).toHaveText(/running/i, {timeout: 60000});
   await page.getByRole('button', {name: 'Cancel run', exact: true}).click();
   await expect(page.getByRole('status', {name: 'Run status'})).toHaveText(/cancelled/i, {timeout: 30000});
+  await expect(page.getByText('No test results were produced for this run.', {exact:true})).toBeVisible();
   const cancelled = await (await page.request.get(`/api/v1/runs/${cancelledId}`)).json();
   await expect.poll(() => execFileSync('docker', ['ps','-aq','--filter',`label=browsergrid.job_id=${cancelled.jobs[0].id}`], {encoding:'utf8',timeout:15000}).trim(), {timeout:15000}).toBe('');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
