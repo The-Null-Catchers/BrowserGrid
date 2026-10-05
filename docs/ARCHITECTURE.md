@@ -42,7 +42,7 @@ SQLite tests check state logic but cannot establish PostgreSQL lock semantics. S
 
 The Docker backend creates a non-root sandbox on a dedicated internal bridge. A proxy on that bridge has public-network access; execution containers themselves do not. The fixture application is the only intentionally allowed private target in local development. Production must remove that exception or explicitly scope it to a controlled test application.
 
-Source files and configuration are copied through the Docker archive API, not bind-mounted from the host. Input files and parent directories are owned by UID 1000. A final readiness sentinel prevents the runtime from reading incomplete source input.
+Source files and configuration stream through a bounded non-root tar exec into the writable tmpfs, without host bind mounts. Docker archive access cannot write into this sandbox's read-only rootfs. Input files and parent directories are owned by UID 1000. A final readiness sentinel prevents the runtime from reading incomplete source input.
 
 The runtime fetches an exact public GitHub commit or consumes a validated ZIP, installs lockfile dependencies without install scripts, builds an enforced Playwright configuration, probes a real browser launch, and invokes the project-local Playwright command for repositories/bundles. The instrumentation fixture resolves that same physical dependency to avoid loading a second Playwright instance. A custom reporter emits bounded structured timeline events. Test output and browser metadata are persisted by the trusted worker.
 

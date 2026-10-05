@@ -4,7 +4,7 @@ Authoring date: 2026-10-04. This records executed checks, not expected results.
 
 | Check | Observed result |
 | --- | --- |
-| Python control-plane/security/scheduler/executor/worker unit suite | 146 passed; 7 PostgreSQL-specific tests skipped in this job and passed in the dedicated PostgreSQL job |
+| Python control-plane/security/scheduler/executor/worker unit suite | 147 passed; 7 PostgreSQL-specific tests skipped in this job and passed in the dedicated PostgreSQL job |
 | Ruff lint and formatting | Passed |
 | Next.js TypeScript check | Passed |
 | Next.js production build | Passed, version 15.5.27 |
@@ -21,7 +21,7 @@ Authoring date: 2026-10-04. This records executed checks, not expected results.
 | Live worker-crash/watchdog recovery acceptance | Passed: WORKER_LOST fencing, restarted-worker reaping and independent watchdog timeout with the worker stopped |
 | Live sandbox/network escape tests | Limited live acceptance passed: fixture allowed; host and published-port DNAT canaries blocked; metadata proxy request denied. Comprehensive DNS rebinding/IPv6/UDP probes remain pending |
 | Container OS vulnerability scan | Not executed |
-| Dashboard browser/visual/accessibility QA | Not executed; build/type checks do not substitute for these |
+| Dashboard browser/visual/accessibility QA | Real account/project/live-run/failure/download/mobile-cancellation/session/tenancy browser acceptance passed; full visual/accessibility coverage remains pending |
 | GitHub CI / repository push | Published to The-Null-Catchers/BrowserGrid; all six jobs passed at commit 68529ae058d75aa19e7886023ce941fc18dfaff1 |
 
 Unit executor/worker tests deliberately use doubles to test orchestration and cleanup. They do not establish that a browser launched. `infra/scripts/e2e.py` and the `isolated-browser-e2e` CI job exercise the real path without substituting a mock browser.
@@ -120,4 +120,12 @@ The initial attempt exposed that a Playwright body attachment is embedded in its
 
 `infra/dashboard-tests/` drives the production Next.js dashboard with real Chromium, the Compose API, queue, isolated worker and object store. It covers UI registration/workspace/project creation, modal keyboard containment/Escape, a real run with live SSE logs and automatic completion, passing results, a signed PNG download, video/trace availability, failure details, mobile cancellation with sandbox removal, cross-tenant read/download denial and logout/login. Browser page errors fail the test. CI retains desktop/live/failure/mobile screenshots and failure traces/videos as `dashboard-evidence`. There are no request mocks or fabricated execution records.
 
-The run modal now has dialog semantics, keyboard focus containment and focus restoration. Logout clears tenant/run/navigation state, and opening another run clears stale result/artifact lists. Local TypeScript, Node syntax/discovery and Python lint/format checks passed. Full dashboard acceptance is pending CI; this section must be updated from observed execution before claiming success.
+The run modal now has dialog semantics, keyboard focus containment and focus restoration. Logout clears tenant/run/navigation state, and opening another run clears stale result/artifact lists. Local TypeScript, Node syntax/discovery and Python lint/format checks passed. Full dashboard acceptance passed in CI run 37347475018 at f6e8c65404cdc203a0dfb7a2822d1cee988b247d, including live output after the SSE proxy fix. Final ANSI/terminal-state rendering checks are recorded in the later acceptance below.
+
+## Final dashboard acceptance — 2026-10-05
+
+All six jobs passed in [CI run 37348612949](https://github.com/The-Null-Catchers/BrowserGrid/actions/runs/37348612949) at code commit `51245cb15940d837e95819fc3fa9cdbb3ee85fa3`, before merging PR #1. This includes true isolated browser/viewport, public Git and ZIP execution, dashboard browser acceptance, limited network probes, worker-loss fencing and independent watchdog recovery.
+
+The first dashboard run revealed gzip buffering in the Next.js SSE proxy: an HTTP 200 event stream delivered no live records. Event responses now carry `Cache-Control: no-store, no-transform`; actual browser acceptance requires no content encoding, sees logs while the execution is LIVE, and then observes completion without reloading. A local API regression checks terminal event replay and proxy headers.
+
+The final UI run additionally verifies cleaned ANSI escape sequences in failure text, the truthful no-results state after cancellation, modal keyboard containment/Escape/focus restoration, logout/login state cleanup, signed PNG download and tenant isolation. Four screenshots in `docs/screenshots/` come from this CI execution and were visually inspected. They contain disposable fixture accounts and genuine execution outcomes; they are not seeded historical results. Accessibility scans, visual baselines, rich media/network inspectors and remaining production requirements are still open.
