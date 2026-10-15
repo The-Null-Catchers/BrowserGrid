@@ -3,7 +3,8 @@ WORKDIR /build
 COPY pyproject.toml requirements.lock ./
 COPY browsergrid ./browsergrid
 COPY cli ./cli
-RUN pip install --no-cache-dir --prefix=/install -r requirements.lock && pip install --no-deps --prefix=/install .
+RUN pip install --no-cache-dir --prefix=/install -r requirements.lock && pip install --no-deps --prefix=/install . \
+    && pip install --no-cache-dir --upgrade --prefix=/install 'msgpack>=1.2.1' 'urllib3>=2.8.0' 'setuptools>=78.1.1'
 FROM python:3.13-slim
 RUN apt-get update && apt-get upgrade -y --no-install-recommends && rm -rf /var/lib/apt/lists/*
 RUN useradd --uid 10001 --create-home browsergrid
