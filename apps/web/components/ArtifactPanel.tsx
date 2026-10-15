@@ -40,6 +40,10 @@ function MediaArtifact({artifact, download}: {artifact:RunArtifact;download:(art
 }
 
 export function ArtifactPanel({tab, artifacts, download}: {tab:string;artifacts:RunArtifact[];download:(artifact:RunArtifact)=>void}) {
-  const visible = artifacts.filter(a=>tab==='Artifacts'||tab==='Screenshots'&&a.kind==='screenshot'||tab==='Videos'&&a.kind==='video'||tab==='Traces'&&a.kind==='trace'||tab==='Network'&&a.name.endsWith('network.json'));
-  return <section className="panel"><div className="panelHeader"><h2>{tab}</h2><small>Private artifacts · access links expire after 120 seconds</small></div><div className="artifactGrid">{visible.map(artifact=><MediaArtifact key={artifact.id} artifact={artifact} download={download}/>)}</div>{!visible.length&&<div className="empty small"><p>No {tab==='Artifacts'?'artifacts':tab.toLowerCase()} have been uploaded for this run.</p></div>}</section>;
+  const [query, setQuery] = useState('');
+  const [kind, setKind] = useState('all');
+  const matchingTab = artifacts.filter(a=>tab==='Artifacts'||tab==='Screenshots'&&a.kind==='screenshot'||tab==='Videos'&&a.kind==='video'||tab==='Traces'&&a.kind==='trace'||tab==='Network'&&a.name.endsWith('network.json'));
+  const kinds = [...new Set(matchingTab.map(a=>a.kind))].sort();
+  const visible = matchingTab.filter(a=>(kind==='all'||a.kind===kind)&&(`${a.name} ${a.job_id} ${a.kind}`).toLowerCase().includes(query.trim().toLowerCase()));
+  return <section className="panel"><div className="panelHeader"><h2>{tab}</h2><small>Private artifacts · access links expire after 120 seconds</small></div>{matchingTab.length>0&&<div className="artifactFilters"><label>Search artifacts<input aria-label="Search artifacts" placeholder="Filename, job ID, or type" value={query} onChange={e=>setQuery(e.target.value)}/></label>{tab==='Artifacts'&&<label>Artifact type<select aria-label="Artifact type" value={kind} onChange={e=>setKind(e.target.value)}><option value="all">All types</option>{kinds.map(k=><option key={k} value={k}>{k}</option>)}</select></label>}<small>{visible.length} of {matchingTab.length} artifacts</small></div>}<div className="artifactGrid">{visible.map(artifact=><MediaArtifact key={artifact.id} artifact={artifact} download={download}/>)}</div>{!visible.length&&<div className="empty small"><p>{matchingTab.length?'No artifacts match the current filters.':`No ${tab==='Artifacts'?'artifacts':tab.toLowerCase()} have been uploaded for this run.`}</p></div>}</section>;
 }
