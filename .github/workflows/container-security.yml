@@ -47,6 +47,14 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build the actual deployable image
         run: docker build --pull --file "${{ matrix.dockerfile }}" --tag "${{ matrix.tag }}" .
+      - name: Inspect Python dependency metadata
+        if: matrix.name == 'control-plane'
+        run: |
+          docker run --rm --entrypoint /bin/sh "${{ matrix.tag }}" -c '
+            /opt/venv/bin/python -m pip show msgpack setuptools urllib3
+            echo "Python distribution metadata in deployed image:"
+            find /opt/venv /usr/local/lib -type d \\( -name "msgpack*.dist-info" -o -name "setuptools*.dist-info" -o -name "urllib3*.dist-info" \\) -print
+          '
       - name: Scan OS and language dependencies
         # High/critical findings must fail rather than silently becoming portfolio claims.
         uses: aquasecurity/trivy-action@v0.36.0
