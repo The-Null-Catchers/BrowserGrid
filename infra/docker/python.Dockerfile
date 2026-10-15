@@ -7,10 +7,10 @@ RUN pip install --no-cache-dir --prefix=/install -r requirements.lock && pip ins
     && pip install --no-cache-dir --upgrade --prefix=/install 'msgpack>=1.2.1' 'urllib3>=2.8.0' 'setuptools>=78.1.1'
 FROM python:3.13-slim
 RUN apt-get update && apt-get upgrade -y --no-install-recommends && rm -rf /var/lib/apt/lists/*
-RUN python -m pip install --no-cache-dir --upgrade 'msgpack>=1.2.1' 'urllib3>=2.8.0' 'setuptools>=78.1.1' \
-    && python -m pip check
 RUN useradd --uid 10001 --create-home browsergrid
 COPY --from=build /install /usr/local
+RUN python -m pip install --no-cache-dir --upgrade 'msgpack>=1.2.1' 'urllib3>=2.8.0' 'setuptools>=78.1.1' \
+    && python -m pip check
 WORKDIR /app
 COPY alembic.ini ./
 COPY packages/db/migrations ./packages/db/migrations
