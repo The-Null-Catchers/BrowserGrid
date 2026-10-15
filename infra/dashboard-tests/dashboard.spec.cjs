@@ -94,6 +94,15 @@ test('account, project, live real run, failure evidence, mobile cancellation and
   const runId = await newRun(page, successful);
   await page.getByRole('button', {name: 'Logs', exact: true}).click();
   await expect(page.getByRole('log', {name: 'Execution events'})).toContainText('dashboard live output smoke');
+  const searchLogs = page.getByRole('textbox', {name: 'Search execution output'});
+  await searchLogs.fill('dashboard live output smoke');
+  await expect(page.getByRole('log', {name: 'Execution events'})).toContainText('dashboard live output smoke');
+  await searchLogs.fill('nonexistent-log-marker-xyz');
+  await expect(page.getByRole('log', {name: 'Execution events'})).not.toContainText('dashboard live output smoke');
+  await searchLogs.fill('');
+  await page.getByRole('combobox', {name: 'Log event type'}).selectOption('output');
+  await expect(page.getByRole('log', {name: 'Execution events'})).toContainText('dashboard live output smoke');
+  await page.getByRole('combobox', {name: 'Log event type'}).selectOption('all');
   await expect(page.locator('.live')).toHaveText('LIVE');
   expect(streams.length).toBeGreaterThan(0);
   const headers = await streams[0].allHeaders();
