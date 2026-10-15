@@ -1,4 +1,4 @@
-FROM node:22.14.0-alpine AS build
+FROM node:22-alpine AS build
 WORKDIR /app
 COPY apps/web/package*.json ./
 RUN npm ci --no-audit --no-fund
@@ -7,7 +7,7 @@ ARG BG_ARTIFACT_PUBLIC_ORIGIN=http://localhost:9000
 ENV BG_ARTIFACT_PUBLIC_ORIGIN=${BG_ARTIFACT_PUBLIC_ORIGIN}
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
-FROM node:22.14.0-alpine
+FROM node:22-alpine
 WORKDIR /app
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 HOSTNAME=0.0.0.0 PORT=3000
 COPY --from=build --chown=node:node /app/.next/standalone ./
