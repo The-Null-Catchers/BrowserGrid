@@ -115,6 +115,15 @@ test('account, project, live real run, failure evidence, mobile cancellation and
   await expect(page.getByText('No artifacts match the current filters.')).toBeVisible();
   await searchArtifacts.fill('');
   await expect(page.locator('.mediaArtifact')).toHaveCount(totalArtifacts);
+  const jobFilter = page.getByRole('combobox', {name: 'Filter by browser job'});
+  if (await jobFilter.count()) {
+    const jobId = await jobFilter.locator('option').nth(1).getAttribute('value');
+    expect(jobId).toBeTruthy();
+    await jobFilter.selectOption(jobId);
+    await expect(page.locator('.mediaArtifact').first()).toContainText(jobId.slice(0,8));
+    await jobFilter.selectOption('all');
+    await expect(page.locator('.mediaArtifact')).toHaveCount(totalArtifacts);
+  }
   await page.getByRole('combobox', {name: 'Artifact type'}).selectOption('screenshot');
   await expect(page.locator('.mediaArtifact').first()).toContainText('screenshot');
   await page.getByRole('combobox', {name: 'Sort artifacts'}).selectOption('size-desc');
