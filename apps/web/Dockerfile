@@ -3,6 +3,8 @@ WORKDIR /app
 COPY apps/web/package*.json ./
 RUN npm ci --no-audit --no-fund
 COPY apps/web ./
+ARG BG_ARTIFACT_PUBLIC_ORIGIN=http://localhost:9000
+ENV BG_ARTIFACT_PUBLIC_ORIGIN=${BG_ARTIFACT_PUBLIC_ORIGIN}
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 FROM node:22.14.0-alpine

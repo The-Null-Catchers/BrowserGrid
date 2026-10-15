@@ -154,6 +154,8 @@ services:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
+      args:
+        BG_ARTIFACT_PUBLIC_ORIGIN: ${BG_S3_PUBLIC_ENDPOINT:-http://localhost:9000}
     environment:
       BG_API_INTERNAL_URL: http://api:8000
     networks: [control]
