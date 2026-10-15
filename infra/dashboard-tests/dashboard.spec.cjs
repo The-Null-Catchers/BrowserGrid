@@ -109,7 +109,7 @@ test('account, project, live real run, failure evidence, mobile cancellation and
   await page.getByRole('button', {name: 'Screenshots', exact: true}).click();
   const screenshot = page.locator('.mediaArtifact').first();
   await screenshot.getByRole('button', {name: 'Preview screenshot', exact:true}).click();
-  const image = screenshot.getByRole('img');
+  const image = screenshot.locator('img.screenshotPreview');
   await expect(image).toBeVisible();
   await expect.poll(() => image.evaluate(element => element.naturalWidth)).toBe(1440);
   await screenshot.getByRole('button', {name:'Expand screenshot'}).click();
