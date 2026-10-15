@@ -49,7 +49,7 @@ jobs:
         run: docker build --pull --file "${{ matrix.dockerfile }}" --tag "${{ matrix.tag }}" .
       - name: Scan OS and language dependencies
         # High/critical findings must fail rather than silently becoming portfolio claims.
-        uses: aquasecurity/trivy-action@0.33.1
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ matrix.tag }}
           format: table
