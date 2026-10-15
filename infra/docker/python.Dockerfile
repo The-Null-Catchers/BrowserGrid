@@ -5,6 +5,7 @@ COPY browsergrid ./browsergrid
 COPY cli ./cli
 RUN pip install --no-cache-dir --prefix=/install -r requirements.lock && pip install --no-deps --prefix=/install .
 FROM python:3.13-slim
+RUN apt-get update && apt-get upgrade -y --no-install-recommends && rm -rf /var/lib/apt/lists/*
 RUN useradd --uid 10001 --create-home browsergrid
 COPY --from=build /install /usr/local
 WORKDIR /app
