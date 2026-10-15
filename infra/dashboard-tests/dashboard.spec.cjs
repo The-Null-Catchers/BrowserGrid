@@ -116,7 +116,7 @@ test('account, project, live real run, failure evidence, mobile cancellation and
   await expect(screenshot).toHaveClass(/expanded/);
   await screenshot.getByRole('button', {name:'Collapse screenshot'}).click();
   await screenshot.getByRole('button', {name:'Refresh preview'}).click();
-  await expect.poll(() => screenshot.getByRole('img').evaluate(element => element.naturalWidth)).toBe(1440);
+  await expect.poll(() => screenshot.locator('img.screenshotPreview').evaluate(element => element.naturalWidth)).toBe(1440);
   await page.screenshot({path: info.outputPath('screenshot-preview.png'), fullPage:true});
   await downloadFromUI(page, context, screenshot.getByRole('button', {name:'Download artifact ↗'}));
   await page.getByRole('button', {name: 'Videos', exact: true}).click();
