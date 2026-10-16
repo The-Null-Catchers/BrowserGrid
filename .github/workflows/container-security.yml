@@ -78,7 +78,8 @@ jobs:
           for result in report.get('Results', []):
               for vuln in result.get('Vulnerabilities', []) or []:
                   if vuln.get('PkgName') in {'msgpack', 'urllib3', 'setuptools'}:
-                      print('TARGET:', result.get('Target'))
+                      print('TARGET:', result.get('Target'), 'TYPE:', result.get('Type'))
+                      print('DETAIL:', {key: vuln.get(key) for key in ('PkgPath', 'PkgID', 'Layer', 'PrimaryURL', 'DataSource')})
                       print('PACKAGE:', vuln.get('PkgName'), vuln.get('InstalledVersion'), 'FIXED:', vuln.get('FixedVersion'))
           PY
       - name: Scan OS and language dependencies
