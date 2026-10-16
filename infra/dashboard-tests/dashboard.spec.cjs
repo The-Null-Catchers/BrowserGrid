@@ -120,7 +120,7 @@ test('account, project, live real run, failure evidence, mobile cancellation and
   const totalArtifacts = await page.locator('.mediaArtifact').count();
   expect(totalArtifacts).toBeGreaterThan(0);
   await searchArtifacts.fill('this-artifact-does-not-exist');
-  await expect(page.getByRole('status', {name: /Showing 0 of .* artifacts/})).toBeVisible();
+  await expect(page.getByRole('status').filter({hasText: /Showing 0 of .* artifacts/})).toBeVisible();
   await expect(page.locator('.mediaArtifact')).toHaveCount(0);
   await expect(page.getByText('No artifacts match the current filters.')).toBeVisible();
   await searchArtifacts.fill('');
