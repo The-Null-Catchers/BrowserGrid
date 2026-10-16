@@ -9,6 +9,7 @@ function MediaArtifact({artifact, download}: {artifact:RunArtifact;download:(art
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [expanded, setExpanded] = useState(false);
+  const [audit, setAudit] = useState<{checks:number;findings:{rule:string;count:number}[]}|null>(null);
   const request = useRef<AbortController|null>(null);
   useEffect(() => () => request.current?.abort(), []);
   const image = artifact.kind === 'screenshot' && /\.(png|jpe?g|webp)$/i.test(artifact.name);
@@ -18,11 +19,19 @@ function MediaArtifact({artifact, download}: {artifact:RunArtifact;download:(art
     request.current?.abort();
     const controller = new AbortController();
     request.current = controller;
-    setLoading(true);setError('');setUrl('');
+    setLoading(true);setError('');setUrl('');setAudit(null);
     try {
       const response = await fetch(`/api/v1/artifacts/${artifact.id}/download`, {credentials:'include',signal:controller.signal});
       if (!response.ok) throw new Error(response.status === 410 ? 'This artifact has expired.' : 'Unable to authorize this preview.');
       const data = await response.json() as {url:string};
+      if (accessibility) {
+        const reportResponse = await fetch(data.url, {signal: controller.signal});
+        if (!reportResponse.ok) throw new Error('Unable to load accessibility report.');
+        const report: unknown = await reportResponse.json();
+        if (!report || typeof report !== 'object' || !('checks' in report) || typeof report.checks !== 'number' || !('findings' in report) || !Array.isArray(report.findings)) throw new Error('Invalid accessibility report.');
+        const findings = report.findings.filter((row): row is {rule:string;count:number} => !!row && typeof row.rule === 'string' && typeof row.count === 'number');
+        if (!controller.signal.aborted) setAudit({checks:report.checks,findings});
+      }
       if (!controller.signal.aborted) setUrl(data.url);
     } catch (cause) {
       if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : 'Preview unavailable.');
@@ -33,6 +42,7 @@ function MediaArtifact({artifact, download}: {artifact:RunArtifact;download:(art
   return <article className={`artifact mediaArtifact${expanded?' expanded':''}`}>
     <div className="artifactMeta">{image?<ImageIcon size={18}/>:video?<Film size={18}/>:<ExternalLink size={18}/>}<strong>{artifact.name}</strong><small>{artifact.kind} · {(artifact.size/1024).toFixed(1)} KB · job {artifact.job_id.slice(0,8)}</small></div>
     {accessibility&&<button className="secondary" onClick={preview} disabled={loading}>{loading?'Loading report…':'View accessibility report'}</button>}
+    {audit&&accessibility&&<div role="status"><strong>{audit.findings.reduce((total, row)=>total+row.count,0)} accessibility findings</strong><small> · {audit.checks} basic checks</small>{audit.findings.length>0&&<ul>{audit.findings.map(row=><li key={row.rule}>{row.rule}: {row.count}</li>)}</ul>}</div>}
     {url&&accessibility&&<a href={url} target="_blank" rel="noopener noreferrer">Open accessibility JSON ↗</a>}
     {(image||video)&&<button className="secondary" disabled={loading} onClick={preview}>{loading?'Loading preview…':url||error?'Refresh preview':'Preview '+(image?'screenshot':'video')}</button>}
     {error&&<p role="alert">{error}</p>}
