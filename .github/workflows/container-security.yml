@@ -1,0 +1,96 @@
+name: Container security
+on:
+  pull_request:
+    paths:
+      - 'infra/docker/**'
+      - 'apps/web/Dockerfile'
+      - 'runtimes/**'
+      - 'requirements.lock'
+      - 'apps/web/package-lock.json'
+      - '.github/workflows/container-security.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'infra/docker/**'
+      - 'apps/web/Dockerfile'
+      - 'runtimes/**'
+      - 'requirements.lock'
+      - 'apps/web/package-lock.json'
+      - '.github/workflows/container-security.yml'
+  schedule:
+    - cron: '23 3 * * 1'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: image-security-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  scan:
+    name: Scan ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: control-plane
+            dockerfile: infra/docker/python.Dockerfile
+            tag: browsergrid-control:security-ci
+          - name: dashboard
+            dockerfile: apps/web/Dockerfile
+            tag: browsergrid-web:security-ci
+          - name: browser-runtime
+            dockerfile: runtimes/Dockerfile
+            tag: browsergrid-runtime:security-ci
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the actual deployable image
+        run: docker build --pull --file "${{ matrix.dockerfile }}" --tag "${{ matrix.tag }}" .
+      - name: Inspect Python dependency metadata
+        if: matrix.name == 'control-plane'
+        run: |
+          docker run --rm --entrypoint /bin/sh "${{ matrix.tag }}" -c '
+            /opt/venv/bin/python -m pip show msgpack setuptools urllib3
+            echo "Python distribution metadata in deployed image:"
+            find /opt/venv /usr/local/lib -type d -name "*.dist-info" | grep -E "/(msgpack|setuptools|urllib3)-" || true
+          '
+      - name: Report vulnerable Python package locations
+        if: matrix.name == 'control-plane'
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ matrix.tag }}
+          format: json
+          output: trivy-control.json
+          exit-code: '0'
+          ignore-unfixed: true
+          vuln-type: os,library
+          severity: HIGH,CRITICAL
+        env:
+          TRIVY_DISABLE_VEX_NOTICE: 'true'
+      - name: Identify vulnerable targets
+        if: matrix.name == 'control-plane'
+        run: |
+          python - <<'PY'
+          import json
+          with open('trivy-control.json', encoding='utf-8') as f:
+              report = json.load(f)
+          for result in report.get('Results', []):
+              for vuln in result.get('Vulnerabilities', []) or []:
+                  if vuln.get('PkgName') in {'msgpack', 'urllib3', 'setuptools'}:
+                      print('TARGET:', result.get('Target'), 'TYPE:', result.get('Type'))
+                      print('DETAIL:', {key: vuln.get(key) for key in ('PkgPath', 'PkgID', 'Layer', 'PrimaryURL', 'DataSource')})
+                      print('PACKAGE:', vuln.get('PkgName'), vuln.get('InstalledVersion'), 'FIXED:', vuln.get('FixedVersion'))
+          PY
+      - name: Scan OS and language dependencies
+        # High/critical findings must fail rather than silently becoming portfolio claims.
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ matrix.tag }}
+          format: table
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: os,library
+          severity: HIGH,CRITICAL
+        env:
+          TRIVY_DISABLE_VEX_NOTICE: 'true'

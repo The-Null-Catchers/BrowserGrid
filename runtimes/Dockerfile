@@ -1,6 +1,7 @@
 FROM mcr.microsoft.com/playwright:v1.58.2-noble
 USER root
-RUN apt-get update && apt-get upgrade -y --no-install-recommends && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get upgrade -y --no-install-recommends && rm -rf /var/lib/apt/lists/* \
+    && npm install --global --no-audit --no-fund npm@11
 WORKDIR /opt/browsergrid
 COPY runtimes/package*.json ./
 RUN npm ci --ignore-scripts --no-audit --no-fund && mkdir -p node_modules/@browsergrid
