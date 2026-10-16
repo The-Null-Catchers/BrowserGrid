@@ -118,6 +118,8 @@ test('account, project, live real run, failure evidence, mobile cancellation and
   await page.getByRole('button', {name: 'Artifacts', exact: true}).click();
   const accessibilityCard = page.locator('.mediaArtifact').filter({hasText:'accessibility.json'}).first();
   await expect(accessibilityCard.getByRole('button', {name:'View accessibility report'})).toBeVisible();
+  await accessibilityCard.getByRole('button', {name:'View accessibility report'}).click();
+  await expect(accessibilityCard.getByRole('status')).toContainText('accessibility findings');
   const searchArtifacts = page.getByRole('textbox', {name: 'Search artifacts'});
   const totalArtifacts = await page.locator('.mediaArtifact').count();
   expect(totalArtifacts).toBeGreaterThan(0);
