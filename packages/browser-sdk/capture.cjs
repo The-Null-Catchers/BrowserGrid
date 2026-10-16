@@ -102,7 +102,11 @@ async function capturedPageFixture(page, use, testInfo) {
     const events = await capture.finish();
     const fs = require('node:fs');
     const path = require('node:path');
-    for (const [name, content] of [['console.json', events.console], ['network.json', events.network]]) {
+    const {auditAccessibility} = require('./accessibility.cjs');
+    let accessibility;
+    try { accessibility = await auditAccessibility(page); }
+    catch (error) { accessibility = {checks: 0, findings: [], error: 'Accessibility preflight unavailable'}; }
+    for (const [name, content] of [['console.json', events.console], ['network.json', events.network], ['accessibility.json', accessibility]]) {
       const file = testInfo.outputPath(name);
       fs.mkdirSync(path.dirname(file), {recursive: true});
       fs.writeFileSync(file, JSON.stringify(content));
