@@ -135,6 +135,8 @@ test('account, project, live real run, failure evidence, mobile cancellation and
   }
   await page.getByRole('combobox', {name: 'Artifact type'}).selectOption('screenshot');
   await expect(page.locator('.mediaArtifact').first()).toContainText('screenshot');
+  await page.getByRole('combobox', {name: 'Filter by file size'}).selectOption('medium');
+  await expect(page.getByRole('combobox', {name: 'Filter by file size'})).toHaveValue('medium');
   await page.getByRole('combobox', {name: 'Filter by file size'}).selectOption('large');
   await expect(page.getByRole('combobox', {name: 'Filter by file size'})).toHaveValue('large');
   await page.getByRole('combobox', {name: 'Filter by file size'}).selectOption('all');
