@@ -135,6 +135,11 @@ test('account, project, live real run, failure evidence, mobile cancellation and
   }
   await page.getByRole('combobox', {name: 'Artifact type'}).selectOption('screenshot');
   await expect(page.locator('.mediaArtifact').first()).toContainText('screenshot');
+  await page.getByRole('combobox', {name: 'Filter by file size'}).selectOption('large');
+  await expect(page.getByRole('combobox', {name: 'Filter by file size'})).toHaveValue('large');
+  await page.getByRole('combobox', {name: 'Filter by file size'}).selectOption('all');
+  await page.getByRole('combobox', {name: 'Artifact type'}).selectOption('all');
+  await expect(page.locator('.mediaArtifact')).toHaveCount(totalArtifacts);
   await page.getByRole('combobox', {name: 'Sort artifacts'}).selectOption('name-desc');
   await expect(page.getByRole('combobox', {name: 'Sort artifacts'})).toHaveValue('name-desc');
   await page.getByRole('combobox', {name: 'Sort artifacts'}).selectOption('size-desc');
@@ -143,6 +148,7 @@ test('account, project, live real run, failure evidence, mobile cancellation and
   await expect(page.getByRole('textbox', {name: 'Search artifacts'})).toHaveValue('');
   await expect(page.getByRole('combobox', {name: 'Artifact type'})).toHaveValue('all');
   await expect(page.getByRole('combobox', {name: 'Sort artifacts'})).toHaveValue('name');
+  await expect(page.getByRole('combobox', {name: 'Filter by file size'})).toHaveValue('all');
   await expect(page.locator('.mediaArtifact')).toHaveCount(totalArtifacts);
   await page.getByRole('button', {name: 'Screenshots', exact: true}).click();
   const screenshot = page.locator('.mediaArtifact').first();
