@@ -12,6 +12,7 @@ function MediaArtifact({artifact, download}: {artifact:RunArtifact;download:(art
   const request = useRef<AbortController|null>(null);
   useEffect(() => () => request.current?.abort(), []);
   const image = artifact.kind === 'screenshot' && /\.(png|jpe?g|webp)$/i.test(artifact.name);
+  const accessibility = artifact.name.endsWith('accessibility.json');
   const video = artifact.kind === 'video' && /\.(webm|mp4)$/i.test(artifact.name);
   async function preview() {
     request.current?.abort();
@@ -31,6 +32,8 @@ function MediaArtifact({artifact, download}: {artifact:RunArtifact;download:(art
   }
   return <article className={`artifact mediaArtifact${expanded?' expanded':''}`}>
     <div className="artifactMeta">{image?<ImageIcon size={18}/>:video?<Film size={18}/>:<ExternalLink size={18}/>}<strong>{artifact.name}</strong><small>{artifact.kind} · {(artifact.size/1024).toFixed(1)} KB · job {artifact.job_id.slice(0,8)}</small></div>
+    {accessibility&&<button className="secondary" onClick={preview} disabled={loading}>{loading?'Loading report…':'View accessibility report'}</button>}
+    {url&&accessibility&&<a href={url} target="_blank" rel="noopener noreferrer">Open accessibility JSON ↗</a>}
     {(image||video)&&<button className="secondary" disabled={loading} onClick={preview}>{loading?'Loading preview…':url||error?'Refresh preview':'Preview '+(image?'screenshot':'video')}</button>}
     {error&&<p role="alert">{error}</p>}
     {url&&image&&<><img src={url} alt={`Screenshot: ${artifact.name}`} className="screenshotPreview" onError={()=>{setUrl('');setError('Image could not load. Refresh the preview to renew its access link.');}}/><button className="textButton" aria-expanded={expanded} onClick={()=>setExpanded(!expanded)}>{expanded?'Collapse screenshot':'Expand screenshot'}</button></>}
