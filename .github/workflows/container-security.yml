@@ -55,6 +55,32 @@ jobs:
             echo "Python distribution metadata in deployed image:"
             find /opt/venv /usr/local/lib -type d -name "*.dist-info" | grep -E "/(msgpack|setuptools|urllib3)-" || true
           '
+      - name: Report vulnerable Python package locations
+        if: matrix.name == 'control-plane'
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ matrix.tag }}
+          format: json
+          output: trivy-control.json
+          exit-code: '0'
+          ignore-unfixed: true
+          vuln-type: os,library
+          severity: HIGH,CRITICAL
+        env:
+          TRIVY_DISABLE_VEX_NOTICE: 'true'
+      - name: Identify vulnerable targets
+        if: matrix.name == 'control-plane'
+        run: |
+          python - <<'PY'
+          import json
+          with open('trivy-control.json', encoding='utf-8') as f:
+              report = json.load(f)
+          for result in report.get('Results', []):
+              for vuln in result.get('Vulnerabilities', []) or []:
+                  if vuln.get('PkgName') in {'msgpack', 'urllib3', 'setuptools'}:
+                      print('TARGET:', result.get('Target'))
+                      print('PACKAGE:', vuln.get('PkgName'), vuln.get('InstalledVersion'), 'FIXED:', vuln.get('FixedVersion'))
+          PY
       - name: Scan OS and language dependencies
         # High/critical findings must fail rather than silently becoming portfolio claims.
         uses: aquasecurity/trivy-action@v0.36.0
