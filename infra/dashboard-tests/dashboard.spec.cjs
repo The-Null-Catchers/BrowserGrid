@@ -116,6 +116,8 @@ test('account, project, live real run, failure evidence, mobile cancellation and
   await expect(page.locator('.testRow .badge')).toHaveText(/passed/i);
   await page.screenshot({path: info.outputPath('run-details.png'), fullPage: true});
   await page.getByRole('button', {name: 'Artifacts', exact: true}).click();
+  const accessibilityCard = page.locator('.mediaArtifact').filter({hasText:'accessibility.json'}).first();
+  await expect(accessibilityCard.getByRole('button', {name:'View accessibility report'})).toBeVisible();
   const searchArtifacts = page.getByRole('textbox', {name: 'Search artifacts'});
   const totalArtifacts = await page.locator('.mediaArtifact').count();
   expect(totalArtifacts).toBeGreaterThan(0);
