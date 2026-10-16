@@ -176,6 +176,8 @@ test('account, project, live real run, failure evidence, mobile cancellation and
   await video.evaluate(element => element.play());
   await expect.poll(() => video.evaluate(element => element.currentTime)).toBeGreaterThan(0);
   await video.evaluate(element => element.pause());
+  await page.getByRole('button', {name: 'Artifacts', exact: true}).click();
+  await expect(page.locator('.mediaArtifact').filter({hasText:'accessibility.json'}).first()).toBeVisible();
   await page.getByRole('button', {name: 'Traces', exact: true}).click();
   await expect(page.locator('.artifact').first()).toContainText('trace');
 
