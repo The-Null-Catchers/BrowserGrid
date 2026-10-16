@@ -13,6 +13,12 @@ RUN apt-get update && apt-get upgrade -y --no-install-recommends && rm -rf /var/
 RUN useradd --uid 10001 --create-home browsergrid
 COPY --from=build /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
+# pip vendors older copies of several libraries; no package manager is required at runtime.
+# Remove only pip and its bundled libraries from the final image, not the application wheels.
+RUN rm -rf /usr/local/lib/python3.13/site-packages/pip /usr/local/lib/python3.13/site-packages/pip-*.dist-info \
+    /opt/venv/lib/python3.13/site-packages/pip /opt/venv/lib/python3.13/site-packages/pip-*.dist-info \
+    /usr/local/bin/pip /usr/local/bin/pip3 /usr/local/bin/pip3.13 \
+    /opt/venv/bin/pip /opt/venv/bin/pip3 /opt/venv/bin/pip3.13
 WORKDIR /app
 COPY alembic.ini ./
 COPY packages/db/migrations ./packages/db/migrations
