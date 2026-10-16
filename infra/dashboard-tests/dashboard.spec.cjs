@@ -138,6 +138,7 @@ test('account, project, live real run, failure evidence, mobile cancellation and
   await page.getByRole('combobox', {name: 'Filter by file size'}).selectOption('large');
   await expect(page.getByRole('combobox', {name: 'Filter by file size'})).toHaveValue('large');
   await page.getByRole('combobox', {name: 'Filter by file size'}).selectOption('all');
+  await page.getByRole('combobox', {name: 'Artifact type'}).selectOption('all');
   await expect(page.locator('.mediaArtifact')).toHaveCount(totalArtifacts);
   await page.getByRole('combobox', {name: 'Sort artifacts'}).selectOption('name-desc');
   await expect(page.getByRole('combobox', {name: 'Sort artifacts'})).toHaveValue('name-desc');
