@@ -137,6 +137,11 @@ test('account, project, live real run, failure evidence, mobile cancellation and
   await expect(page.locator('.mediaArtifact').first()).toContainText('screenshot');
   await page.getByRole('combobox', {name: 'Sort artifacts'}).selectOption('size-desc');
   await expect(page.locator('.mediaArtifact').first()).toBeVisible();
+  await page.getByRole('button', {name: 'Clear filters'}).click();
+  await expect(page.getByRole('textbox', {name: 'Search artifacts'})).toHaveValue('');
+  await expect(page.getByRole('combobox', {name: 'Artifact type'})).toHaveValue('all');
+  await expect(page.getByRole('combobox', {name: 'Sort artifacts'})).toHaveValue('name');
+  await expect(page.locator('.mediaArtifact')).toHaveCount(totalArtifacts);
   await page.getByRole('button', {name: 'Screenshots', exact: true}).click();
   const screenshot = page.locator('.mediaArtifact').first();
   await screenshot.getByRole('button', {name: 'Preview screenshot', exact:true}).click();
