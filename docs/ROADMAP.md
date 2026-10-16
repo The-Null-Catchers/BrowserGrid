@@ -13,7 +13,7 @@ The requested product spans ten phases. This source delivery has a verified exec
 | 7. Quality | Fixture includes deterministic accessibility/visual/network cases | Axe scans, responsive URL mode and performance metrics not implemented |
 | 8. Visual testing | No fabricated baselines or diffs | Baselines, pixel comparison and approvals not implemented |
 | 9. Integrations | Scoped API keys, basic API-token CLI, run idempotency | GitHub Apps/webhooks/checks, webhook delivery, schedules not implemented |
-| 10. Production hardening | Initial quotas, ZIP/TAR controls, secret encryption, retention, health checks, independent watchdog, upload reservations, CI files, docs | Watchdog, PostgreSQL contention and limited live network probes passed; full observability, image scans, deletion reconciliation and external security validation pending |
+| 10. Production hardening | Initial quotas, ZIP/TAR controls, secret encryption, retention, health checks, independent watchdog, upload reservations, CI files, docs | Watchdog, PostgreSQL contention and limited live network probes passed; full observability, deletion reconciliation and external security validation pending; deployable-image Trivy scans passed in PR #12 |
 
 Other unfinished requirements include email verification/reset, invitation lifecycle and ownership transfer, persistent project configuration UI, platform-admin area, search and run comparison, dashboard analytics beyond recent-run summaries, embedded media/trace viewer, rich network filtering, in-app notifications and portfolio screenshots from verified runs.
 
@@ -23,6 +23,6 @@ Other unfinished requirements include email verification/reset, invitation lifec
 2. Add axe accessibility scans, responsive URL captures and measured performance data incrementally, with real fixture acceptance for each.
 3. Expand live network probes to private control-plane services, IPv6, UDP and DNS rebinding; rerun existing host/DNAT/metadata probes on each deployment host.
 4. Implement visual baseline comparison and approval after the quality execution paths are stable.
-5. Complete lifecycle deletion, image scanning, observability and the remaining foundation/integration requirements before a production release.
+5. Complete lifecycle deletion, observability and the remaining foundation/integration requirements before a production release. Maintain the already-enabled weekly/PR container image vulnerability gate.
 
 No phase is certified complete while its required integration tests remain unexecuted.
