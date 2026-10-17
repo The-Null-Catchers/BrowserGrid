@@ -106,7 +106,24 @@ async function capturedPageFixture(page, use, testInfo) {
     let accessibility;
     try { accessibility = await auditAccessibility(page); }
     catch (error) { accessibility = {checks: 0, findings: [], error: 'Accessibility preflight unavailable'}; }
-    for (const [name, content] of [['console.json', events.console], ['network.json', events.network], ['accessibility.json', accessibility]]) {
+    let performanceMetrics;
+    try {
+      performanceMetrics = await page.evaluate(() => {
+        const navigation = performance.getEntriesByType('navigation')[0];
+        const paints = performance.getEntriesByType('paint');
+        const safe = value => Number.isFinite(value) && value >= 0 ? Math.round(value) : null;
+        const paint = name => safe(paints.find(entry => entry.name === name)?.startTime);
+        return {
+          navigation_duration_ms: safe(navigation?.duration),
+          dom_content_loaded_ms: safe(navigation?.domContentLoadedEventEnd),
+          load_event_ms: safe(navigation?.loadEventEnd),
+          response_end_ms: safe(navigation?.responseEnd),
+          first_paint_ms: paint('first-paint'),
+          first_contentful_paint_ms: paint('first-contentful-paint')
+        };
+      });
+    } catch { performanceMetrics = {error: 'Page performance metrics unavailable'}; }
+    for (const [name, content] of [['console.json', events.console], ['network.json', events.network], ['accessibility.json', accessibility], ['performance.json', performanceMetrics]]) {
       const file = testInfo.outputPath(name);
       fs.mkdirSync(path.dirname(file), {recursive: true});
       fs.writeFileSync(file, JSON.stringify(content));
