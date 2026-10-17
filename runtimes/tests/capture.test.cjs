@@ -134,7 +134,8 @@ test('failing test bodies still write real JSON artifact files', async () => {
       page.emit('pageerror', Error('fixture failure'));
       throw Error('test failed');
     }, info), /test failed/);
-    assert.equal(attached.length, 3);
+    assert.equal(attached.length, 4);
+    assert.deepEqual(JSON.parse(fs.readFileSync(path.join(root, 'performance.json'))), {error: 'Page performance metrics unavailable'});
     assert.deepEqual(JSON.parse(fs.readFileSync(path.join(root, 'accessibility.json'))), {checks: 0, findings: [], error: 'Accessibility preflight unavailable'});
     assert.equal(JSON.parse(fs.readFileSync(path.join(root, 'console.json')))[0].message, 'fixture failure');
     assert.deepEqual(JSON.parse(fs.readFileSync(path.join(root, 'network.json'))), []);
