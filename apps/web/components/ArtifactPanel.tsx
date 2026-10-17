@@ -24,6 +24,7 @@ function MediaArtifact({artifact, download}: {artifact:RunArtifact;download:(art
       const response = await fetch(`/api/v1/artifacts/${artifact.id}/download`, {credentials:'include',signal:controller.signal});
       if (!response.ok) throw new Error(response.status === 410 ? 'This artifact has expired.' : 'Unable to authorize this preview.');
       const data = await response.json() as {url:string};
+      if (accessibility && !controller.signal.aborted) setUrl(data.url);
       if (accessibility) {
         const reportResponse = await fetch(data.url, {signal: controller.signal});
         if (!reportResponse.ok) throw new Error('Unable to load accessibility report.');
