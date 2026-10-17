@@ -14,6 +14,7 @@ function MediaArtifact({artifact, download}: {artifact:RunArtifact;download:(art
   useEffect(() => () => request.current?.abort(), []);
   const image = artifact.kind === 'screenshot' && /\.(png|jpe?g|webp)$/i.test(artifact.name);
   const accessibility = artifact.name.endsWith('accessibility.json');
+  const performanceReport = artifact.name.endsWith('performance.json');
   const video = artifact.kind === 'video' && /\.(webm|mp4)$/i.test(artifact.name);
   async function preview() {
     request.current?.abort();
@@ -42,6 +43,8 @@ function MediaArtifact({artifact, download}: {artifact:RunArtifact;download:(art
   }
   return <article className={`artifact mediaArtifact${expanded?' expanded':''}`}>
     <div className="artifactMeta">{image?<ImageIcon size={18}/>:video?<Film size={18}/>:<ExternalLink size={18}/>}<strong>{artifact.name}</strong><small>{artifact.kind} · {(artifact.size/1024).toFixed(1)} KB · job {artifact.job_id.slice(0,8)}</small></div>
+    {performanceReport&&<button className="secondary" onClick={preview} disabled={loading}>{loading?'Loading timing report…':'Open performance report'}</button>}
+    {url&&performanceReport&&<a href={url} target="_blank" rel="noopener noreferrer">View performance JSON ↗</a>}
     {accessibility&&<button className="secondary" onClick={preview} disabled={loading}>{loading?'Loading report…':'View accessibility report'}</button>}
     {accessibility&&error&&<p role="status">Inline report unavailable; use the authorized JSON link to inspect the findings.</p>}
     {audit&&accessibility&&<div role="status"><strong>{audit.findings.reduce((total, row)=>total+row.count,0)} accessibility findings</strong><small> · {audit.checks} basic checks</small>{audit.findings.length>0&&<ul>{audit.findings.map(row=><li key={row.rule}>{row.rule}: {row.count}</li>)}</ul>}</div>}
