@@ -121,6 +121,7 @@ test('account, project, live real run, failure evidence, mobile cancellation and
   await accessibilityCard.getByRole('button', {name:'View accessibility report'}).click();
   await expect(accessibilityCard.getByRole('link', {name:'Open accessibility JSON'})).toBeVisible();
   await expect(accessibilityCard.getByRole('status').or(accessibilityCard.getByRole('alert'))).toBeVisible();
+  await expect(accessibilityCard.getByRole('status').or(accessibilityCard.getByRole('alert'))).toContainText(/accessibility findings|Inline report unavailable|Unable to load accessibility report|Failed to fetch|fetch/i);
   const searchArtifacts = page.getByRole('textbox', {name: 'Search artifacts'});
   const totalArtifacts = await page.locator('.mediaArtifact').count();
   expect(totalArtifacts).toBeGreaterThan(0);
