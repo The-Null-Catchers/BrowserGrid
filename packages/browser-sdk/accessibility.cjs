@@ -15,6 +15,8 @@ async function auditAccessibility(page) {
   if (unnamedButtons > 0) findings.push({rule: 'button-name', count: unnamedButtons});
   const unnamedLinks = await page.locator('a[href]:not([aria-label]):not([aria-labelledby])').evaluateAll(links => links.filter(link => !link.textContent?.trim() && !link.querySelector('img[alt]:not([alt=""])') && !link.getAttribute('title')?.trim()).length);
   if (unnamedLinks > 0) findings.push({rule: 'link-name', count: unnamedLinks});
-  return {checks: checks.length + 2, findings};
+  const emptyTitle = await page.locator('head title').evaluateAll(titles => titles.length === 0 || titles.every(title => !title.textContent?.trim()));
+  if (emptyTitle) findings.push({rule: 'document-title', count: 1});
+  return {checks: checks.length + 3, findings};
 }
 module.exports = {auditAccessibility};
