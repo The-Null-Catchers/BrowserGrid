@@ -11,6 +11,8 @@ async function auditAccessibility(page) {
     const count = await page.locator(selector).count();
     if (count > 0) findings.push({rule, count});
   }
-  return {checks: checks.length, findings};
+  const unnamedButtons = await page.locator('button:not([aria-label]):not([aria-labelledby])').evaluateAll(buttons => buttons.filter(button => !button.textContent?.trim() && !button.getAttribute('title')?.trim()).length);
+  if (unnamedButtons > 0) findings.push({rule: 'button-name', count: unnamedButtons});
+  return {checks: checks.length + 1, findings};
 }
 module.exports = {auditAccessibility};
