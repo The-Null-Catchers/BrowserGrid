@@ -13,6 +13,8 @@ async function auditAccessibility(page) {
   }
   const unnamedButtons = await page.locator('button:not([aria-label]):not([aria-labelledby])').evaluateAll(buttons => buttons.filter(button => !button.textContent?.trim() && !button.getAttribute('title')?.trim()).length);
   if (unnamedButtons > 0) findings.push({rule: 'button-name', count: unnamedButtons});
-  return {checks: checks.length + 1, findings};
+  const unnamedLinks = await page.locator('a[href]:not([aria-label]):not([aria-labelledby])').evaluateAll(links => links.filter(link => !link.textContent?.trim() && !link.querySelector('img[alt]:not([alt=""])') && !link.getAttribute('title')?.trim()).length);
+  if (unnamedLinks > 0) findings.push({rule: 'link-name', count: unnamedLinks});
+  return {checks: checks.length + 2, findings};
 }
 module.exports = {auditAccessibility};
