@@ -19,6 +19,8 @@ async function auditAccessibility(page) {
   if (emptyTitle) findings.push({rule: 'document-title', count: 1});
   const imageInputs = await page.locator('input[type="image"]:not([alt]):not([aria-label]):not([aria-labelledby])').count();
   if (imageInputs > 0) findings.push({rule: 'input-image-alt', count: imageInputs});
-  return {checks: checks.length + 4, findings};
+  const untitledFrames = await page.locator('iframe:not([title]):not([aria-label]):not([aria-labelledby]), iframe[title=""]').count();
+  if (untitledFrames > 0) findings.push({rule: 'frame-title', count: untitledFrames});
+  return {checks: checks.length + 5, findings};
 }
 module.exports = {auditAccessibility};
