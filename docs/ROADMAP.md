@@ -10,7 +10,7 @@ The requested product spans ten phases. This source delivery has a verified exec
 | 4. Realtime | SSE replay, timeline, bounded logs, cancellation, lease recovery | State/security tests and live cancellation/worker-loss/watchdog recovery passed; live dashboard SSE output/completion and mobile cancellation passed |
 | 5. Browser matrix | Chromium/Firefox/WebKit configuration, viewport matrix | Real six-job browser/viewport matrix passed; PNG dimensions verified |
 | 6. Debugging | Video/trace/screenshots; instrumented page console/network JSON | Actual capture/download and expected console/network content passed; full viewers/filters pending |
-| 7. Quality | Fixture includes deterministic accessibility/visual/network cases | Axe scans, responsive URL mode and performance metrics not implemented |
+| 7. Quality | Deterministic accessibility preflight attached as accessibility.json; browser navigation and paint timings attached as performance.json, both viewable via authorized artifact links | Basic preflight and real browser timing artifact acceptance tested; axe-core/WCAG audit, responsive URL mode, and performance budgets remain pending |
 | 8. Visual testing | No fabricated baselines or diffs | Baselines, pixel comparison and approvals not implemented |
 | 9. Integrations | Scoped API keys, basic API-token CLI, run idempotency | GitHub Apps/webhooks/checks, webhook delivery, schedules not implemented |
 | 10. Production hardening | Initial quotas, ZIP/TAR controls, secret encryption, retention, health checks, independent watchdog, upload reservations, CI files, docs | Watchdog, PostgreSQL contention and limited live network probes passed; full observability, deletion reconciliation and external security validation pending; deployable-image Trivy scans passed in PR #12 |
@@ -20,7 +20,7 @@ Other unfinished requirements include email verification/reset, invitation lifec
 ## Next acceptance and delivery work
 
 1. Add embedded media/trace viewers and console/network filtering; extend dashboard acceptance to bundle/Git configuration and larger histories.
-2. Add axe accessibility scans, responsive URL captures and measured performance data incrementally, with real fixture acceptance for each.
+2. Implement axe-core accessibility scans and responsive URL captures; establish performance budgets and assertions using the already-captured real browser timing data.
 3. Expand live network probes to private control-plane services, IPv6, UDP and DNS rebinding; rerun existing host/DNAT/metadata probes on each deployment host.
 4. Implement visual baseline comparison and approval after the quality execution paths are stable.
 5. Complete lifecycle deletion, observability and the remaining foundation/integration requirements before a production release. Maintain the already-enabled weekly/PR container image vulnerability gate.
