@@ -10,6 +10,7 @@ function MediaArtifact({artifact, download}: {artifact:RunArtifact;download:(art
   const [error, setError] = useState('');
   const [expanded, setExpanded] = useState(false);
   const [audit, setAudit] = useState<{checks:number;findings:{rule:string;count:number}[]}|null>(null);
+  const [timings, setTimings] = useState<{label:string;ms:number}[]|null>(null);
   const request = useRef<AbortController|null>(null);
   useEffect(() => () => request.current?.abort(), []);
   const image = artifact.kind === 'screenshot' && /\.(png|jpe?g|webp)$/i.test(artifact.name);
@@ -20,12 +21,12 @@ function MediaArtifact({artifact, download}: {artifact:RunArtifact;download:(art
     request.current?.abort();
     const controller = new AbortController();
     request.current = controller;
-    setLoading(true);setError('');setUrl('');setAudit(null);
+    setLoading(true);setError('');setUrl('');setAudit(null);setTimings(null);
     try {
       const response = await fetch(`/api/v1/artifacts/${artifact.id}/download`, {credentials:'include',signal:controller.signal});
       if (!response.ok) throw new Error(response.status === 410 ? 'This artifact has expired.' : 'Unable to authorize this preview.');
       const data = await response.json() as {url:string};
-      if (accessibility && !controller.signal.aborted) setUrl(data.url);
+      if ((accessibility || performanceReport) && !controller.signal.aborted) setUrl(data.url);
       if (accessibility) {
         const reportResponse = await fetch(data.url, {signal: controller.signal});
         if (!reportResponse.ok) throw new Error('Unable to load accessibility report.');
@@ -33,6 +34,15 @@ function MediaArtifact({artifact, download}: {artifact:RunArtifact;download:(art
         if (!report || typeof report !== 'object' || !('checks' in report) || typeof report.checks !== 'number' || !('findings' in report) || !Array.isArray(report.findings)) throw new Error('Invalid accessibility report.');
         const findings = report.findings.filter((row): row is {rule:string;count:number} => !!row && typeof row.rule === 'string' && typeof row.count === 'number');
         if (!controller.signal.aborted) setAudit({checks:report.checks,findings});
+      }
+      if (performanceReport) {
+        const timingResponse = await fetch(data.url, {signal: controller.signal});
+        if (!timingResponse.ok) throw new Error('Unable to load timing report.');
+        const timing: unknown = await timingResponse.json();
+        if (!timing || typeof timing !== 'object') throw new Error('Invalid timing report.');
+        const fields = [['Navigation','navigation_duration_ms'],['DOMContentLoaded','dom_content_loaded_ms'],['Load','load_event_ms'],['First paint','first_paint_ms'],['First contentful paint','first_contentful_paint_ms']] as const;
+        const values = fields.flatMap(([label,key]) => {const value = (timing as Record<string,unknown>)[key];return typeof value==='number' && Number.isFinite(value) && value>=0 ? [{label,ms:value}] : [];});
+        if (!controller.signal.aborted) setTimings(values);
       }
       if (!controller.signal.aborted) setUrl(data.url);
     } catch (cause) {
@@ -44,6 +54,7 @@ function MediaArtifact({artifact, download}: {artifact:RunArtifact;download:(art
   return <article className={`artifact mediaArtifact${expanded?' expanded':''}`}>
     <div className="artifactMeta">{image?<ImageIcon size={18}/>:video?<Film size={18}/>:<ExternalLink size={18}/>}<strong>{artifact.name}</strong><small>{artifact.kind} · {(artifact.size/1024).toFixed(1)} KB · job {artifact.job_id.slice(0,8)}</small></div>
     {performanceReport&&<button className="secondary" onClick={preview} disabled={loading}>{loading?'Loading timing report…':'Open performance report'}</button>}
+    {performanceReport&&timings&&<div role="status"><strong>Measured browser timings</strong>{timings.length?<ul>{timings.map(t=><li key={t.label}>{t.label}: {t.ms} ms</li>)}</ul>:<p>No timing entries available for this page.</p>}</div>}
     {url&&performanceReport&&<a href={url} target="_blank" rel="noopener noreferrer">View performance JSON ↗</a>}
     {accessibility&&<button className="secondary" onClick={preview} disabled={loading}>{loading?'Loading report…':'View accessibility report'}</button>}
     {accessibility&&error&&<p role="status">Inline report unavailable; use the authorized JSON link to inspect the findings.</p>}
