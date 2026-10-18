@@ -21,6 +21,17 @@ async function auditAccessibility(page) {
   if (imageInputs > 0) findings.push({rule: 'input-image-alt', count: imageInputs});
   const untitledFrames = await page.locator('iframe:not([title]):not([aria-label]):not([aria-labelledby]), iframe[title=""]').count();
   if (untitledFrames > 0) findings.push({rule: 'frame-title', count: untitledFrames});
-  return {checks: checks.length + 5, findings};
+  const duplicateIds = await page.locator('[id]').evaluateAll(elements => {
+    const seen = new Set();
+    let duplicates = 0;
+    for (const element of elements) {
+      if (!element.id) continue;
+      if (seen.has(element.id)) duplicates += 1;
+      else seen.add(element.id);
+    }
+    return duplicates;
+  });
+  if (duplicateIds > 0) findings.push({rule: 'duplicate-id', count: duplicateIds});
+  return {checks: checks.length + 6, findings};
 }
 module.exports = {auditAccessibility};
