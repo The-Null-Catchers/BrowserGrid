@@ -123,6 +123,8 @@ test('account, project, live real run, failure evidence, mobile cancellation and
   await expect(accessibilityCard.getByRole('link', {name:'Open accessibility JSON'})).toBeVisible();
   await expect(accessibilityCard.getByRole('status').first()).toBeVisible();
   await expect(accessibilityCard.getByRole('status').first()).toContainText(/accessibility findings|Inline report unavailable/i);
+  const timingCard = page.locator('.mediaArtifact').filter({hasText:'performance.json'}).first();
+  await expect(timingCard.getByRole('button', {name:'Open performance report'})).toBeVisible();
   const searchArtifacts = page.getByRole('textbox', {name: 'Search artifacts'});
   const totalArtifacts = await page.locator('.mediaArtifact').count();
   expect(totalArtifacts).toBeGreaterThan(0);
