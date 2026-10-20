@@ -16,6 +16,7 @@ function MediaArtifact({artifact, download}: {artifact:RunArtifact;download:(art
   const image = artifact.kind === 'screenshot' && /\.(png|jpe?g|webp)$/i.test(artifact.name);
   const accessibility = artifact.name.endsWith('accessibility.json');
   const performanceReport = artifact.name.endsWith('performance.json');
+  const budgetReport = artifact.name.endsWith('performance-budget.json');
   const video = artifact.kind === 'video' && /\.(webm|mp4)$/i.test(artifact.name);
   async function preview() {
     request.current?.abort();
@@ -26,7 +27,7 @@ function MediaArtifact({artifact, download}: {artifact:RunArtifact;download:(art
       const response = await fetch(`/api/v1/artifacts/${artifact.id}/download`, {credentials:'include',signal:controller.signal});
       if (!response.ok) throw new Error(response.status === 410 ? 'This artifact has expired.' : 'Unable to authorize this preview.');
       const data = await response.json() as {url:string};
-      if ((accessibility || performanceReport) && !controller.signal.aborted) setUrl(data.url);
+      if ((accessibility || performanceReport || budgetReport) && !controller.signal.aborted) setUrl(data.url);
       if (accessibility) {
         const reportResponse = await fetch(data.url, {signal: controller.signal});
         if (!reportResponse.ok) throw new Error('Unable to load accessibility report.');
@@ -53,6 +54,8 @@ function MediaArtifact({artifact, download}: {artifact:RunArtifact;download:(art
   }
   return <article className={`artifact mediaArtifact${expanded?' expanded':''}`}>
     <div className="artifactMeta">{image?<ImageIcon size={18}/>:video?<Film size={18}/>:<ExternalLink size={18}/>}<strong>{artifact.name}</strong><small>{artifact.kind} · {(artifact.size/1024).toFixed(1)} KB · job {artifact.job_id.slice(0,8)}</small></div>
+    {budgetReport&&<button className="secondary" onClick={preview} disabled={loading}>{loading?'Loading budget report…':'Open performance budget report'}</button>}
+    {url&&budgetReport&&<a href={url} target="_blank" rel="noopener noreferrer">View performance budget JSON ↗</a>}
     {performanceReport&&<button className="secondary" onClick={preview} disabled={loading}>{loading?'Loading timing report…':'Open performance report'}</button>}
     {performanceReport&&timings&&<div role="status"><strong>Measured browser timings</strong>{timings.length?<ul>{timings.map(t=><li key={t.label}>{t.label}: {t.ms} ms</li>)}</ul>:<p>No timing entries available for this page.</p>}</div>}
     {url&&performanceReport&&<a href={url} target="_blank" rel="noopener noreferrer">View performance JSON ↗</a>}
