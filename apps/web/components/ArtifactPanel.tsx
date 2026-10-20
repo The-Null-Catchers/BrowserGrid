@@ -40,10 +40,10 @@ function MediaArtifact({artifact, download}: {artifact:RunArtifact;download:(art
       if (budgetReport) {
         const budgetResponse = await fetch(data.url, {signal:controller.signal});
         if (!budgetResponse.ok) throw new Error('Unable to load performance budget report.');
-        const data: unknown = await budgetResponse.json();
-        if (!data || typeof data !== 'object' || !('passed' in data) || typeof data.passed !== 'boolean' || !('results' in data) || !Array.isArray(data.results)) throw new Error('Invalid performance budget report.');
-        const results = data.results.filter((row): row is {metric:string;status:string;limit_ms:number;observed_ms:number|null} => !!row && typeof row.metric==='string' && ['pass','fail','unavailable'].includes(row.status) && typeof row.limit_ms==='number' && (row.observed_ms===null || typeof row.observed_ms==='number'));
-        if (!controller.signal.aborted) setBudget({passed:data.passed,results});
+        const budgetData: unknown = await budgetResponse.json();
+        if (!budgetData || typeof budgetData !== 'object' || !('passed' in budgetData) || typeof budgetData.passed !== 'boolean' || !('results' in budgetData) || !Array.isArray(budgetData.results)) throw new Error('Invalid performance budget report.');
+        const results = budgetData.results.filter((row): row is {metric:string;status:string;limit_ms:number;observed_ms:number|null} => !!row && typeof row.metric==='string' && ['pass','fail','unavailable'].includes(row.status) && typeof row.limit_ms==='number' && (row.observed_ms===null || typeof row.observed_ms==='number'));
+        if (!controller.signal.aborted) setBudget({passed:budgetData.passed,results});
       }
       if (performanceReport) {
         const timingResponse = await fetch(data.url, {signal: controller.signal});
