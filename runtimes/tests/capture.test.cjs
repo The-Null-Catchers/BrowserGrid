@@ -142,3 +142,22 @@ test('failing test bodies still write real JSON artifact files', async () => {
     assert.equal(page.eventNames().length, 0);
   } finally { fs.rmSync(root, {recursive: true, force: true}); }
 });
+
+test('configured performance budget produces a real attachment on unavailable page metrics', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bg-budgets-'));
+  const previous = process.env.BG_PERFORMANCE_BUDGETS;
+  process.env.BG_PERFORMANCE_BUDGETS = JSON.stringify({first_contentful_paint_ms: 1000});
+  const page = new EventEmitter();
+  const info = {outputPath: name => path.join(root, name), attach: async () => {}};
+  try {
+    await capturedPageFixture(page, async () => {}, info);
+    assert.deepEqual(JSON.parse(fs.readFileSync(path.join(root, 'performance-budget.json'))), {
+      passed: false,
+      results: [{metric: 'first_contentful_paint_ms', limit_ms: 1000, observed_ms: null, status: 'unavailable'}]
+    });
+  } finally {
+    if (previous === undefined) delete process.env.BG_PERFORMANCE_BUDGETS;
+    else process.env.BG_PERFORMANCE_BUDGETS = previous;
+    fs.rmSync(root, {recursive: true, force: true});
+  }
+});
