@@ -123,6 +123,13 @@ test('account, project, live real run, failure evidence, mobile cancellation and
   await expect(accessibilityCard.getByRole('link', {name:'Open accessibility JSON'})).toBeVisible();
   await expect(accessibilityCard.getByRole('status').first()).toBeVisible();
   await expect(accessibilityCard.getByRole('status').first()).toContainText(/accessibility findings|Inline report unavailable/i);
+  // Performance budget reports are optional and only appear when configured.
+  const budgetCard = page.locator('.mediaArtifact').filter({hasText:'performance-budget.json'}).first();
+  if (await budgetCard.count()) {
+    await expect(budgetCard.getByRole('button', {name:'Open performance budget report'})).toBeVisible();
+    await budgetCard.getByRole('button', {name:'Open performance budget report'}).click();
+    await expect(budgetCard.getByRole('link', {name:'View performance budget JSON'})).toBeVisible();
+  }
   const timingCard = page.locator('.mediaArtifact').filter({hasText:'performance.json'}).first();
   await expect(timingCard.getByRole('button', {name:'Open performance report'})).toBeVisible();
   await timingCard.getByRole('button', {name:'Open performance report'}).click();
