@@ -123,7 +123,18 @@ async function capturedPageFixture(page, use, testInfo) {
         };
       });
     } catch { performanceMetrics = {error: 'Page performance metrics unavailable'}; }
-    for (const [name, content] of [['console.json', events.console], ['network.json', events.network], ['accessibility.json', accessibility], ['performance.json', performanceMetrics]]) {
+    const attachments = [['console.json', events.console], ['network.json', events.network], ['accessibility.json', accessibility], ['performance.json', performanceMetrics]];
+    if (process.env.BG_PERFORMANCE_BUDGETS) {
+      let budgetReport;
+      try {
+        const budgets = JSON.parse(process.env.BG_PERFORMANCE_BUDGETS);
+        if (!budgets || typeof budgets !== 'object' || Array.isArray(budgets)) throw new TypeError('Expected a JSON object');
+        const {evaluatePerformanceBudget} = require('./performance-budget.cjs');
+        budgetReport = evaluatePerformanceBudget(performanceMetrics, budgets);
+      } catch { budgetReport = {passed:false, results:[], error:'Invalid performance budget configuration'}; }
+      attachments.push(['performance-budget.json', budgetReport]);
+    }
+    for (const [name, content] of attachments) {
       const file = testInfo.outputPath(name);
       fs.mkdirSync(path.dirname(file), {recursive: true});
       fs.writeFileSync(file, JSON.stringify(content));
