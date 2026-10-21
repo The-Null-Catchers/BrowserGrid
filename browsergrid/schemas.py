@@ -82,12 +82,20 @@ class RunConfig(BaseModel):
     def valid_performance_budgets(cls, value):
         if value is None:
             return value
-        allowed = {'navigation_duration_ms', 'dom_content_loaded_ms', 'load_event_ms', 'first_paint_ms', 'first_contentful_paint_ms'}
+        allowed = {
+            "navigation_duration_ms",
+            "dom_content_loaded_ms",
+            "load_event_ms",
+            "first_paint_ms",
+            "first_contentful_paint_ms",
+        }
         if not value or any(key not in allowed for key in value):
-            raise ValueError('Performance budgets must contain supported timing metrics')
+            raise ValueError("Performance budgets must contain supported timing metrics")
         from math import isfinite
         if any(not isfinite(limit) or limit < 0 for limit in value.values()):
-            raise ValueError('Performance budget thresholds must be finite nonnegative milliseconds')
+            raise ValueError(
+                "Performance budget thresholds must be finite nonnegative milliseconds"
+            )
         return value
 
     @field_validator("working_directory")
