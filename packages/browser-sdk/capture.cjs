@@ -125,16 +125,20 @@ async function capturedPageFixture(page, use, testInfo) {
     } catch { performanceMetrics = {error: 'Page performance metrics unavailable'}; }
     let enforceBudgetFailure = false;
     const attachments = [['console.json', events.console], ['network.json', events.network], ['accessibility.json', accessibility], ['performance.json', performanceMetrics]];
-    if (process.env.BG_PERFORMANCE_BUDGETS) {
+    const projectBudgets = testInfo.project?.metadata?.performanceBudgets;
+    const budgetConfig = projectBudgets === undefined ? process.env.BG_PERFORMANCE_BUDGETS : projectBudgets;
+    if (budgetConfig !== undefined && budgetConfig !== '') {
       let budgetReport;
       try {
-        const budgets = JSON.parse(process.env.BG_PERFORMANCE_BUDGETS);
+        const budgets = typeof budgetConfig === 'string' ? JSON.parse(budgetConfig) : budgetConfig;
         if (!budgets || typeof budgets !== 'object' || Array.isArray(budgets)) throw new TypeError('Expected a JSON object');
         const {evaluatePerformanceBudget} = require('./performance-budget.cjs');
         budgetReport = evaluatePerformanceBudget(performanceMetrics, budgets);
       } catch { budgetReport = {passed:false, results:[], error:'Invalid performance budget configuration'}; }
       attachments.push(['performance-budget.json', budgetReport]);
-      enforceBudgetFailure = process.env.BG_PERFORMANCE_BUDGET_ENFORCE === '1' && budgetReport.passed === false;
+      const projectEnforcement = testInfo.project?.metadata?.enforcePerformanceBudgets;
+      const enforce = projectEnforcement === undefined ? process.env.BG_PERFORMANCE_BUDGET_ENFORCE === '1' : projectEnforcement === true;
+      enforceBudgetFailure = enforce && budgetReport.passed === false;
     }
     for (const [name, content] of attachments) {
       const file = testInfo.outputPath(name);
