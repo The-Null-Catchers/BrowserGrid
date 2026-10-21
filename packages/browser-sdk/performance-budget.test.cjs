@@ -18,3 +18,9 @@ test('missing metrics are not silently considered passing',()=>{
 test('rejects invalid performance thresholds',()=>{
  assert.throws(()=>evaluatePerformanceBudget({}, {navigation_duration_ms:-1}),TypeError);
 });
+
+test('rejects empty or unrecognized budgets instead of reporting a false pass',()=>{
+ assert.throws(()=>evaluatePerformanceBudget({},{}),TypeError);
+ assert.throws(()=>evaluatePerformanceBudget({}, {unknown_metric_ms:100}),/Unknown performance budget metric/);
+ assert.throws(()=>evaluatePerformanceBudget({}, null),TypeError);
+});
