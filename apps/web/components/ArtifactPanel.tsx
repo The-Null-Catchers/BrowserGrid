@@ -11,6 +11,7 @@ function MediaArtifact({artifact, download}: {artifact:RunArtifact;download:(art
   const [expanded, setExpanded] = useState(false);
   const [audit, setAudit] = useState<{checks:number;findings:{rule:string;count:number}[]}|null>(null);
   const [timings, setTimings] = useState<{label:string;ms:number}[]|null>(null);
+  const [budget, setBudget] = useState<{passed:boolean;results:{metric:string;status:string;limit_ms:number;observed_ms:number|null}[]}|null>(null);
   const request = useRef<AbortController|null>(null);
   useEffect(() => () => request.current?.abort(), []);
   const image = artifact.kind === 'screenshot' && /\.(png|jpe?g|webp)$/i.test(artifact.name);
@@ -22,7 +23,7 @@ function MediaArtifact({artifact, download}: {artifact:RunArtifact;download:(art
     request.current?.abort();
     const controller = new AbortController();
     request.current = controller;
-    setLoading(true);setError('');setUrl('');setAudit(null);setTimings(null);
+    setLoading(true);setError('');setUrl('');setAudit(null);setTimings(null);setBudget(null);
     try {
       const response = await fetch(`/api/v1/artifacts/${artifact.id}/download`, {credentials:'include',signal:controller.signal});
       if (!response.ok) throw new Error(response.status === 410 ? 'This artifact has expired.' : 'Unable to authorize this preview.');
@@ -35,6 +36,14 @@ function MediaArtifact({artifact, download}: {artifact:RunArtifact;download:(art
         if (!report || typeof report !== 'object' || !('checks' in report) || typeof report.checks !== 'number' || !('findings' in report) || !Array.isArray(report.findings)) throw new Error('Invalid accessibility report.');
         const findings = report.findings.filter((row): row is {rule:string;count:number} => !!row && typeof row.rule === 'string' && typeof row.count === 'number');
         if (!controller.signal.aborted) setAudit({checks:report.checks,findings});
+      }
+      if (budgetReport) {
+        const budgetResponse = await fetch(data.url, {signal:controller.signal});
+        if (!budgetResponse.ok) throw new Error('Unable to load performance budget report.');
+        const budgetData: unknown = await budgetResponse.json();
+        if (!budgetData || typeof budgetData !== 'object' || !('passed' in budgetData) || typeof budgetData.passed !== 'boolean' || !('results' in budgetData) || !Array.isArray(budgetData.results)) throw new Error('Invalid performance budget report.');
+        const results = budgetData.results.filter((row): row is {metric:string;status:string;limit_ms:number;observed_ms:number|null} => !!row && typeof row.metric==='string' && ['pass','fail','unavailable'].includes(row.status) && typeof row.limit_ms==='number' && (row.observed_ms===null || typeof row.observed_ms==='number'));
+        if (!controller.signal.aborted) setBudget({passed:budgetData.passed,results});
       }
       if (performanceReport) {
         const timingResponse = await fetch(data.url, {signal: controller.signal});
@@ -55,6 +64,7 @@ function MediaArtifact({artifact, download}: {artifact:RunArtifact;download:(art
   return <article className={`artifact mediaArtifact${expanded?' expanded':''}`}>
     <div className="artifactMeta">{image?<ImageIcon size={18}/>:video?<Film size={18}/>:<ExternalLink size={18}/>}<strong>{artifact.name}</strong><small>{artifact.kind} · {(artifact.size/1024).toFixed(1)} KB · job {artifact.job_id.slice(0,8)}</small></div>
     {budgetReport&&<button className="secondary" onClick={preview} disabled={loading}>{loading?'Loading budget report…':'Open performance budget report'}</button>}
+    {budgetReport&&budget&&<div role="status"><strong>Performance budgets: {budget.passed?'passed':'not passed'}</strong>{budget.results.length>0&&<ul>{budget.results.map(row=><li key={row.metric}>{row.metric}: {row.status} ({row.observed_ms===null?'unavailable':row.observed_ms+' ms'} / {row.limit_ms} ms)</li>)}</ul>}</div>}
     {url&&budgetReport&&<a href={url} target="_blank" rel="noopener noreferrer">View performance budget JSON ↗</a>}
     {performanceReport&&<button className="secondary" onClick={preview} disabled={loading}>{loading?'Loading timing report…':'Open performance report'}</button>}
     {performanceReport&&timings&&<div role="status"><strong>Measured browser timings</strong>{timings.length?<ul>{timings.map(t=><li key={t.label}>{t.label}: {t.ms} ms</li>)}</ul>:<p>No timing entries available for this page.</p>}</div>}

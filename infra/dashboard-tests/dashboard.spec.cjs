@@ -129,6 +129,7 @@ test('account, project, live real run, failure evidence, mobile cancellation and
     await expect(budgetCard.getByRole('button', {name:'Open performance budget report'})).toBeVisible();
     await budgetCard.getByRole('button', {name:'Open performance budget report'}).click();
     await expect(budgetCard.getByRole('link', {name:'View performance budget JSON'})).toBeVisible();
+    await expect(budgetCard.getByRole('status').or(budgetCard.getByRole('alert')).first()).toBeVisible();
   }
   const timingCard = page.locator('.mediaArtifact').filter({hasText:'performance.json'}).first();
   await expect(timingCard.getByRole('button', {name:'Open performance report'})).toBeVisible();
