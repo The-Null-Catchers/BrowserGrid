@@ -183,3 +183,28 @@ test('opt-in performance enforcement reports budget failure after attaching evid
     fs.rmSync(root, {recursive: true, force: true});
   }
 });
+
+test('project metadata overrides environment performance budgets without global changes', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bg-project-budgets-'));
+  const priorBudgets = process.env.BG_PERFORMANCE_BUDGETS;
+  const priorEnforce = process.env.BG_PERFORMANCE_BUDGET_ENFORCE;
+  process.env.BG_PERFORMANCE_BUDGETS = JSON.stringify({navigation_duration_ms: 2000});
+  process.env.BG_PERFORMANCE_BUDGET_ENFORCE = '1';
+  const page = new EventEmitter();
+  const info = {outputPath: name => path.join(root, name), attach: async () => {}, status: 'passed',
+    project: {metadata: {performanceBudgets: {first_paint_ms: 750}, enforcePerformanceBudgets: false}}};
+  try {
+    await capturedPageFixture(page, async () => {}, info);
+    const report = JSON.parse(fs.readFileSync(path.join(root, 'performance-budget.json')));
+    assert.equal(report.passed, false);
+    assert.equal(report.results.length, 1);
+    assert.equal(report.results[0].metric, 'first_paint_ms');
+    assert.equal(report.results[0].limit_ms, 750);
+  } finally {
+    if (priorBudgets === undefined) delete process.env.BG_PERFORMANCE_BUDGETS;
+    else process.env.BG_PERFORMANCE_BUDGETS = priorBudgets;
+    if (priorEnforce === undefined) delete process.env.BG_PERFORMANCE_BUDGET_ENFORCE;
+    else process.env.BG_PERFORMANCE_BUDGET_ENFORCE = priorEnforce;
+    fs.rmSync(root, {recursive: true, force: true});
+  }
+});
