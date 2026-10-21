@@ -30,4 +30,47 @@ have been attached. Browser performance measurements vary by hardware,
 load, cache, and runner conditions. Calibrate thresholds on representative
 runners before enabling enforcement. This feature does not yet configure
 budgets through the web dashboard or attach them to a project database
-record; runtime environment variables are currently required.
+record; runtime environment variables or Playwright project metadata are currently required.
+
+## Per-Playwright-project configuration
+
+Use the built-in Playwright `project.metadata` to define independent limits
+for different browser projects. The SDK reads the active project's metadata
+when the captured-page fixture runs:
+
+```js
+// playwright.config.cjs (example for your test suite)
+const {defineConfig} = require('@playwright/test');
+
+module.exports = defineConfig({
+  projects: [
+    {
+      name: 'chromium-performance',
+      use: {browserName: 'chromium'},
+      metadata: {
+        performanceBudgets: {
+          navigation_duration_ms: 3000,
+          first_contentful_paint_ms: 1800
+        },
+        enforcePerformanceBudgets: true
+      }
+    },
+    {
+      name: 'firefox-observe',
+      use: {browserName: 'firefox'},
+      metadata: {
+        performanceBudgets: {navigation_duration_ms: 4000},
+        enforcePerformanceBudgets: false
+      }
+    }
+  ]
+});
+```
+
+Project `performanceBudgets` can be an object or a JSON string, and takes
+priority over `BG_PERFORMANCE_BUDGETS`. If it is omitted, the environment
+variable remains the fallback. Project `enforcePerformanceBudgets` accepts
+boolean `true` or `false`, overriding the environment flag; when omitted
+the environment flag applies. The SDK does not insert these examples into
+running projects automatically: supply metadata in your suite's Playwright
+configuration and use BrowserGrid's captured-page fixture.
