@@ -123,6 +123,7 @@ async function capturedPageFixture(page, use, testInfo) {
         };
       });
     } catch { performanceMetrics = {error: 'Page performance metrics unavailable'}; }
+    let enforceBudgetFailure = false;
     const attachments = [['console.json', events.console], ['network.json', events.network], ['accessibility.json', accessibility], ['performance.json', performanceMetrics]];
     if (process.env.BG_PERFORMANCE_BUDGETS) {
       let budgetReport;
@@ -133,6 +134,7 @@ async function capturedPageFixture(page, use, testInfo) {
         budgetReport = evaluatePerformanceBudget(performanceMetrics, budgets);
       } catch { budgetReport = {passed:false, results:[], error:'Invalid performance budget configuration'}; }
       attachments.push(['performance-budget.json', budgetReport]);
+      enforceBudgetFailure = process.env.BG_PERFORMANCE_BUDGET_ENFORCE === '1' && budgetReport.passed === false;
     }
     for (const [name, content] of attachments) {
       const file = testInfo.outputPath(name);
@@ -140,6 +142,7 @@ async function capturedPageFixture(page, use, testInfo) {
       fs.writeFileSync(file, JSON.stringify(content));
       await testInfo.attach(name, {path: file, contentType: 'application/json'});
     }
+    if (enforceBudgetFailure && testInfo.status !== 'failed') throw new Error('Browser performance budget exceeded or could not be evaluated; inspect performance-budget.json');
   }
 }
 module.exports = {capturePage, safeUrl, capturedPageFixture};

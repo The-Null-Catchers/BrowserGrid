@@ -161,3 +161,25 @@ test('configured performance budget produces a real attachment on unavailable pa
     fs.rmSync(root, {recursive: true, force: true});
   }
 });
+
+test('opt-in performance enforcement reports budget failure after attaching evidence', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bg-budget-enforcement-'));
+  const priorBudgets = process.env.BG_PERFORMANCE_BUDGETS;
+  const priorEnforce = process.env.BG_PERFORMANCE_BUDGET_ENFORCE;
+  process.env.BG_PERFORMANCE_BUDGETS = JSON.stringify({first_contentful_paint_ms: 1000});
+  process.env.BG_PERFORMANCE_BUDGET_ENFORCE = '1';
+  const page = new EventEmitter();
+  const attached = [];
+  const info = {outputPath: name => path.join(root, name), attach: async name => attached.push(name), status: 'passed'};
+  try {
+    await assert.rejects(capturedPageFixture(page, async () => {}, info), /performance budget exceeded or could not be evaluated/i);
+    assert.ok(attached.includes('performance-budget.json'));
+    assert.equal(JSON.parse(fs.readFileSync(path.join(root, 'performance-budget.json'))).passed, false);
+  } finally {
+    if (priorBudgets === undefined) delete process.env.BG_PERFORMANCE_BUDGETS;
+    else process.env.BG_PERFORMANCE_BUDGETS = priorBudgets;
+    if (priorEnforce === undefined) delete process.env.BG_PERFORMANCE_BUDGET_ENFORCE;
+    else process.env.BG_PERFORMANCE_BUDGET_ENFORCE = priorEnforce;
+    fs.rmSync(root, {recursive: true, force: true});
+  }
+});
