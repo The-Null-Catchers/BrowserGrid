@@ -77,7 +77,7 @@ class RunConfig(BaseModel):
     performance_budgets: dict[str, float] | None = None
     enforce_performance_budgets: bool = False
 
-    @field_validator('performance_budgets')
+    @field_validator("performance_budgets")
     @classmethod
     def valid_performance_budgets(cls, value):
         if value is None:
