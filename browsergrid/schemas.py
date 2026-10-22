@@ -92,6 +92,7 @@ class RunConfig(BaseModel):
         if not value or any(key not in allowed for key in value):
             raise ValueError("Performance budgets must contain supported timing metrics")
         from math import isfinite
+
         if any(not isfinite(limit) or limit < 0 for limit in value.values()):
             raise ValueError(
                 "Performance budget thresholds must be finite nonnegative milliseconds"
