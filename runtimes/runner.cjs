@@ -57,7 +57,10 @@ async function command(args, cwd, env, code) {
   const generated={testDir:path.join(cwd,'tests'),outputDir:'/work/results/tests',workers:1,retries:config.retries,
     timeout:Math.min(config.timeout_seconds*1000,120000),fullyParallel:false,
     reporter:[['/opt/browsergrid/reporter.cjs'],['json',{outputFile:'/work/results/report.json'}]],
-    projects:[{name:config.browser,use:{browserName:config.browser}}],
+    projects:[{name:config.browser,use:{browserName:config.browser},metadata:{
+      ...(config.performance_budgets!==undefined&&config.performance_budgets!==null?{performanceBudgets:config.performance_budgets}:{}),
+      ...(config.enforce_performance_budgets!==undefined?{enforcePerformanceBudgets:config.enforce_performance_budgets}:{}),
+    }}],
     use:{viewport:{width:v.width,height:v.height},deviceScaleFactor:v.device_scale_factor,isMobile:v.mobile,hasTouch:v.touch,
       ...(v.user_agent?{userAgent:v.user_agent}:{}),baseURL:config.base_url||undefined,
       screenshot:config.screenshot,video:config.video,trace:config.trace,
