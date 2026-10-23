@@ -53,3 +53,10 @@ test('a real signalled child produces a nonzero execution result',async()=>{
   assert.equal(result.signal,'SIGTERM');
   assert.equal(processExitCode(result.code,result.signal),143);
 });
+
+test('generated project metadata preserves configured performance limits and enforcement',()=>{
+  const source=generatedConfigSource(null,{projects:[{name:'chromium',use:{browserName:'chromium'},metadata:{performanceBudgets:{first_contentful_paint_ms:1500},enforcePerformanceBudgets:true}}]});
+  assert.match(source,/first_contentful_paint_ms/);
+  assert.match(source,/enforcePerformanceBudgets/);
+  assert.match(source,/1500/);
+});
