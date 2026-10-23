@@ -74,6 +74,30 @@ class RunConfig(BaseModel):
     trace: Literal["off", "on", "retain-on-failure", "on-first-retry"] = "retain-on-failure"
     screenshot: Literal["off", "on", "only-on-failure"] = "only-on-failure"
     retention_days: Literal[7, 30, 90] = 30
+    performance_budgets: dict[str, float] | None = None
+    enforce_performance_budgets: bool = False
+
+    @field_validator("performance_budgets")
+    @classmethod
+    def valid_performance_budgets(cls, value):
+        if value is None:
+            return value
+        allowed = {
+            "navigation_duration_ms",
+            "dom_content_loaded_ms",
+            "load_event_ms",
+            "first_paint_ms",
+            "first_contentful_paint_ms",
+        }
+        if not value or any(key not in allowed for key in value):
+            raise ValueError("Performance budgets must contain supported timing metrics")
+        from math import isfinite
+
+        if any(not isfinite(limit) or limit < 0 for limit in value.values()):
+            raise ValueError(
+                "Performance budget thresholds must be finite nonnegative milliseconds"
+            )
+        return value
 
     @field_validator("working_directory")
     @classmethod
