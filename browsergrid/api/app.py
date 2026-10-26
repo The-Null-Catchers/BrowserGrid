@@ -34,7 +34,15 @@ from browsergrid.models import (
     Workspace,
     now,
 )
-from browsergrid.schemas import Credentials, KeyCreate, MemberCreate, Named, RunCreate, SecretCreate
+from browsergrid.schemas import (
+    Credentials,
+    KeyCreate,
+    MemberCreate,
+    Named,
+    ProjectPerformanceSettings,
+    RunCreate,
+    SecretCreate,
+)
 from browsergrid.security import digest, encrypt, validate_bundle, validate_env
 from browsergrid.run_service import enqueue_run, RunCreationError
 
@@ -268,6 +276,24 @@ def projects(
             .limit(limit)
         )
     ]
+
+
+@app.put("/api/v1/projects/{pid}/performance-settings")
+def update_performance_settings(
+    pid: str,
+    data: ProjectPerformanceSettings,
+    p=Depends(identity),
+    db: DBSession = Depends(session),
+):
+    project = project_access(db, p, pid, True, scope=None)
+    project.settings = {
+        **(project.settings or {}),
+        "performance_budgets": data.performance_budgets,
+        "enforce_performance_budgets": data.enforce_performance_budgets,
+    }
+    audit(db, p, project.workspace_id, "project.performance_settings_changed", pid)
+    db.commit()
+    return {"performance_budgets": data.performance_budgets, "enforce_performance_budgets": data.enforce_performance_budgets}
 
 
 @app.put("/api/v1/projects/{pid}/secrets", status_code=204)
