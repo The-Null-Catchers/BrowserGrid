@@ -293,7 +293,10 @@ def update_performance_settings(
     }
     audit(db, p, project.workspace_id, "project.performance_settings_changed", pid)
     db.commit()
-    return {"performance_budgets": data.performance_budgets, "enforce_performance_budgets": data.enforce_performance_budgets}
+    return {
+        "performance_budgets": data.performance_budgets,
+        "enforce_performance_budgets": data.enforce_performance_budgets,
+    }
 
 
 @app.put("/api/v1/projects/{pid}/secrets", status_code=204)
