@@ -1,0 +1,101 @@
+{
+  "repository": "The-Null-Catchers/BrowserGrid",
+  "defaultBranch": "main",
+  "baseSHA": "7fbd879638db863cdf58895bac8ca74ab611c5ee",
+  "backupTag": "cleanup-backup-2026-11-16",
+  "delete": [
+    {
+      "name": "feat/basic-accessibility-audit",
+      "sha": "cb7d933770c18b9ed3fea7cc0775ec0d458ccaa2",
+      "reason": "ancestor"
+    },
+    {
+      "name": "test/dashboard-browser-acceptance",
+      "sha": "51245cb15940d837e95819fc3fa9cdbb3ee85fa3",
+      "reason": "ancestor"
+    },
+    {
+      "name": "docs/container-security-acceptance",
+      "sha": "bedf6f589e73b77f07f7fe928fc7b263eaca769c",
+      "reason": "equivalent"
+    },
+    {
+      "name": "docs/performance-budget-setup",
+      "sha": "51ef9e7bd01ee71b5c7fb61a485d484308e5d86d",
+      "reason": "equivalent"
+    },
+    {
+      "name": "docs/playwright-project-budget-configuration",
+      "sha": "28c2be2c587a12533cd2c4184a73fd433a4ceb53",
+      "reason": "equivalent"
+    },
+    {
+      "name": "docs/quality-acceptance-roadmap",
+      "sha": "3c9f35fc1b3b63437d800ff23c5d9f21f86012ef",
+      "reason": "equivalent"
+    },
+    {
+      "name": "feat/artifact-job-filter",
+      "sha": "9bc49a5d9205140a05cc9a9c74039bc065b937eb",
+      "reason": "equivalent"
+    },
+    {
+      "name": "feat/artifact-sorting",
+      "sha": "4c08ece92063e1fdeb8f6c63589e1c84e78ed097",
+      "reason": "equivalent"
+    },
+    {
+      "name": "feat/live-log-filtering",
+      "sha": "30d0fd50faf563aa67e69f72ec800d0f2c18e933",
+      "reason": "equivalent"
+    },
+    {
+      "name": "feat/runner-performance-budget-metadata",
+      "sha": "e007bd93881aab1a6e03a2d480c153714c394889",
+      "reason": "equivalent"
+    },
+    {
+      "name": "fix/pr-validation-20261116",
+      "sha": "8f9e3fa4a5ddefaea3a09ad8ead9711afe1def80",
+      "reason": "equivalent"
+    },
+    {
+      "name": "quality/accessibility-preflight-tests",
+      "sha": "67eb81873a1e67102b15b7617ff0078ad61c3c7e",
+      "reason": "equivalent"
+    },
+    {
+      "name": "test/artifact-browser-job-e2e",
+      "sha": "519bad787501d9e6d6af8a8b5c01907e8dbc6339",
+      "reason": "equivalent"
+    },
+    {
+      "name": "test/artifact-filter-e2e",
+      "sha": "e76ca94d04690e968561581381bfc4c9f9618311",
+      "reason": "equivalent"
+    },
+    {
+      "name": "test/live-log-filters-e2e",
+      "sha": "dce534a117c80ee405ac718e8be5f54edfa34c8d",
+      "reason": "equivalent"
+    }
+  ],
+  "status": "Explicit user approval received: archive then delete audited SHAs",
+  "archiveParents": [
+    "cb7d933770c18b9ed3fea7cc0775ec0d458ccaa2",
+    "51245cb15940d837e95819fc3fa9cdbb3ee85fa3",
+    "bedf6f589e73b77f07f7fe928fc7b263eaca769c",
+    "51ef9e7bd01ee71b5c7fb61a485d484308e5d86d",
+    "28c2be2c587a12533cd2c4184a73fd433a4ceb53",
+    "3c9f35fc1b3b63437d800ff23c5d9f21f86012ef",
+    "9bc49a5d9205140a05cc9a9c74039bc065b937eb",
+    "4c08ece92063e1fdeb8f6c63589e1c84e78ed097",
+    "30d0fd50faf563aa67e69f72ec800d0f2c18e933",
+    "e007bd93881aab1a6e03a2d480c153714c394889",
+    "8f9e3fa4a5ddefaea3a09ad8ead9711afe1def80",
+    "67eb81873a1e67102b15b7617ff0078ad61c3c7e",
+    "519bad787501d9e6d6af8a8b5c01907e8dbc6339",
+    "e76ca94d04690e968561581381bfc4c9f9618311",
+    "dce534a117c80ee405ac718e8be5f54edfa34c8d"
+  ]
+}
