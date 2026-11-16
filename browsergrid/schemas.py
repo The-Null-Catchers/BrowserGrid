@@ -151,3 +151,13 @@ class SecretCreate(BaseModel):
 class MemberCreate(BaseModel):
     email: str
     role: Literal["admin", "developer", "viewer"]
+
+
+class ProjectPerformanceSettings(BaseModel):
+    performance_budgets: dict[str, float] | None = None
+    enforce_performance_budgets: bool = False
+
+    @field_validator("performance_budgets")
+    @classmethod
+    def valid_budgets(cls, value):
+        return RunConfig.valid_performance_budgets(value)
