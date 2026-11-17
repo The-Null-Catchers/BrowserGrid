@@ -91,6 +91,8 @@ browsergrid cancel '<run UUID>'
 browsergrid artifacts '<run UUID>'
 ```
 
+Set `BROWSERGRID_URL` to the final API endpoint. The CLI rejects HTTP redirects with exit code 2 instead of forwarding the API key or replaying a command at another URL.
+
 `run.json`:
 
 ```json

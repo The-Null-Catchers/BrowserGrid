@@ -10,6 +10,12 @@ from pathlib import Path
 TERMINAL = {"passed", "failed", "timed_out", "cancelled", "infrastructure_failed"}
 
 
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        # Do not forward the workspace API key or replay commands at another URL.
+        return None
+
+
 def main():
     parser = argparse.ArgumentParser(description="BrowserGrid CI client")
     parser.add_argument("--url", default=os.environ.get("BROWSERGRID_URL", "http://localhost:8000"))
@@ -30,6 +36,7 @@ def main():
     args = parser.parse_args()
     if not args.token:
         parser.error("Set BROWSERGRID_TOKEN to a scoped workspace API key")
+    opener = urllib.request.build_opener(NoRedirect())
 
     def request(path, body=None):
         headers = {"Authorization": "Bearer " + args.token, "Content-Type": "application/json"}
@@ -41,7 +48,7 @@ def main():
             data=json.dumps(body).encode() if body is not None else None,
         )
         try:
-            with urllib.request.urlopen(req, timeout=30) as response:
+            with opener.open(req, timeout=30) as response:
                 return json.load(response)
         except urllib.error.HTTPError as error:
             print(f"BrowserGrid API returned HTTP {error.code}", file=sys.stderr)
