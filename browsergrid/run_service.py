@@ -21,8 +21,11 @@ def enqueue_run(db, project, p, data, idempotency_key):
         if not bundle or bundle.project_id != project.id or not bundle.ready:
             raise RunCreationError(404, "Bundle not found")
     request_hash = digest(json.dumps(data.model_dump(), sort_keys=True))
-    if idempotency_key and len(idempotency_key) > 128:
-        raise RunCreationError(422, "Idempotency key too long")
+    if idempotency_key is not None:
+        if not idempotency_key.strip():
+            raise RunCreationError(422, "Idempotency key must not be blank")
+        if len(idempotency_key) > 128:
+            raise RunCreationError(422, "Idempotency key too long")
     # Lock the same workspace row used by job acquisition and quota counting.
     workspace = db.scalar(
         select(Workspace).where(Workspace.id == project.workspace_id).with_for_update()
