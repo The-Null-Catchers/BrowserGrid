@@ -1,3 +1,4 @@
+import pytest
 from sqlalchemy import select
 from browsergrid.models import ApiKey, Event, Job, Member, Run, Secret, Session
 from browsergrid.security import digest
@@ -48,6 +49,37 @@ def test_idempotency_and_matrix(client, account, db):
         client.post("/api/v1/runs", json=body, headers={"Idempotency-Key": "ci-1"}).status_code
         == 409
     )
+
+
+@pytest.mark.parametrize("key", ["", "   ", "x" * 129])
+def test_invalid_idempotency_key_does_not_enqueue(client, account, db, key):
+    _, project = account
+    for _ in range(2):
+        response = client.post(
+            "/api/v1/runs", json=payload(project), headers={"Idempotency-Key": key}
+        )
+        assert response.status_code == 422, response.text
+    assert not list(db.scalars(select(Run)))
+    assert not list(db.scalars(select(Job)))
+
+
+@pytest.mark.parametrize("key", ["x", "x" * 128])
+def test_idempotency_key_length_boundaries_replay(client, account, db, key):
+    _, project = account
+    first = client.post("/api/v1/runs", json=payload(project), headers={"Idempotency-Key": key})
+    second = client.post("/api/v1/runs", json=payload(project), headers={"Idempotency-Key": key})
+    assert first.status_code == second.status_code == 201
+    assert first.json()["id"] == second.json()["id"]
+    assert len(list(db.scalars(select(Job)))) == 1
+
+
+def test_omitted_idempotency_key_creates_independent_runs(client, account, db):
+    _, project = account
+    first = client.post("/api/v1/runs", json=payload(project))
+    second = client.post("/api/v1/runs", json=payload(project))
+    assert first.status_code == second.status_code == 201
+    assert first.json()["id"] != second.json()["id"]
+    assert len(list(db.scalars(select(Job)))) == 2
 
 
 def test_cross_workspace_read_and_cancel(client, account, db):
