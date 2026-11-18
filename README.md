@@ -140,3 +140,7 @@ The real Docker execution gate passed. Broader dashboard, quality and production
 - [Deployment](docs/DEPLOYMENT.md)
 - [Validation evidence](docs/VALIDATION.md)
 - [Remaining scope and acceptance gates](docs/ROADMAP.md)
+
+## Portfolio roadmap
+
+See the [repository-specific portfolio roadmap](PORTFOLIO_ROADMAP.md) for priorities, acceptance criteria, demo scope, and release evidence. This complements the existing implementation and status documentation.
