@@ -1,46 +1,56 @@
-# BrowserGrid — خطة البورتفيليو
+# BrowserGrid portfolio roadmap
 
-مرجع التقييم الأساسي: 17 نوفمبر 2026. تحديث نشر الخطة داخل المستودع: 18 نوفمبر 2026.
+Baseline reviewed on November 17, 2026. Repository roadmap published on November 18, 2026.
 
-الخطة خاصة بهذا المستودع، ومستخلصة من خطة Null Catchers المشتركة. وصف «الموجود الموثق» يعكس المراجعة بتاريخها؛ تحقّق من الكود ووثائق الحالة الحالية قبل إنشاء مهمة جديدة. لا تعِد تنفيذ ميزة موجودة، ولا تعتبر وجود تعريف CI دليلًا على نجاح تشغيله.
+This roadmap applies to this repository and follows the shared Null Catchers portfolio plan. Verify the documented state against the current code and runs before starting work.
 
-**تقدير شريحة العرض الأولى:** 30–50 ساعة. التقدير تخطيطي لمطور يعرف المشروع، ويستثني انتظار حسابات المتاجر والمراجعات الخارجية وتجهيز بيئة الهدف. لا يغطي جميع بنود P2.
+**Estimated initial demo effort** 30–50 hours for a developer familiar with the project. The estimate excludes external reviews, store accounts, target environment setup, and later milestones.
 
-هذه خطة عرض وتطوير تكمل [خارطة التنفيذ الحالية](docs/ROADMAP.md)، ولا تستبدل حالات التنفيذ أو بوابات الأمان الواردة فيها.
+## Project priorities
 
-## الأولويات الخاصة بالمشروع
+**Documented state** The three browser engines run in isolation. CI has produced screenshots, traces, and recordings. Rich viewers, visual baselines, and GitHub checks remain roadmap items.
 
-**الموجود الموثق:** Chromium/Firefox/WebKit، تنفيذ معزول، artifacts وSSE وإلغاء وتعافٍ. توجد صور CI حقيقية. ROADMAP يسجل viewers وvisual baselines وGitHub integration كعمل غير مكتمل؛ ليست الأولوية إعادة بناء executor.
+**P0 — Demo** Turn a deterministic failure into a walkthrough from the run result to its cause and evidence. Extend browser coverage where the walkthrough needs it.
 
-**P0 — نسخة العرض:** أكمل رحلة فشل مفيدة: اختيار browser/viewport → تشغيل fixture → timeline → screenshot/video/trace → سبب الفشل. أضف viewer أو تكامل عرض محدودًا وآمنًا مع artifacts المصرح بها، وفلاتر console/network؛ وسّع الاختبار الموجود ليثبت الرحلة من الواجهة.
+**P1 — Validation and depth** Define a budget for existing performance data and add an axe-core check to a known page. Report the rules checked and the observed violations.
 
-**P1 — قيمة إضافية واحدة:** اربط بيانات performance الحالية بميزانية واضحة، ثم أضف axe-core لمسار URL معلوم مع تقرير مخالفات قابل للتفسير. افحص القواعد القليلة المفيدة بدل ادعاء شهادة توافق شاملة.
+**P2 — Later** Add a visual baseline with image diffs and an approval step. Add GitHub checks afterward.
 
-**P2 — لاحقًا:** baseline واحد وصورة diff وموافقة تغيير، ثم GitHub check integration. هذه مراحل منفصلة؛ تجنب تنفيذها جميعًا قبل نشر أول ديمو.
+**Acceptance criteria** Successful and failing fixtures produce understandable statuses. Artifacts remain scoped to their workspace and come from real runs.
 
-**معيار الإنجاز:** تشغيل fixture ناجح وآخر فاشل، المخرجات خاصة بالمشروع، المستخدم يفهم حالة infrastructure failure، وتقرير الجودة يأتي من تشغيل فعلي.
+**Demo scenario** Reproduce a responsive defect at one viewport, inspect the evidence, fix the fixture, and rerun it. [ROADMAP](https://github.com/The-Null-Catchers/BrowserGrid/blob/main/docs/ROADMAP.md), [Validation](https://github.com/The-Null-Catchers/BrowserGrid/blob/main/docs/VALIDATION.md).
 
-**الديمو:** responsive bug يظهر في viewport واحد → فتح الدليل → إصلاحه → إعادة التشغيل. **الأدلة:** [ROADMAP](https://github.com/The-Null-Catchers/BrowserGrid/blob/main/docs/ROADMAP.md)، [Validation](https://github.com/The-Null-Catchers/BrowserGrid/blob/main/docs/VALIDATION.md).
+## Next milestones
 
-## بوابة قبول نسخة البورتفيليو
+The [validation record](docs/VALIDATION.md) documents runs on Chromium, Firefox, and WebKit.
 
-- [ ] يستطيع شخص آخر تشغيل المسار الرئيسي من checkout نظيف، باتباع README، دون أسرار شخصية.
-- [ ] توجد قصة واحدة مكتملة: مستخدم محدد، مشكلة محددة، ومسار بداية إلى نتيجة محفوظة.
-- [ ] ينجح اختبار للمسار الرئيسي وحالة فشل مهمة، وتُختبر حدود الصلاحيات حيث توجد حسابات متعددة.
-- [ ] توجد بيانات عرض اصطناعية معلنة، قابلة لإعادة الإنشاء؛ ولا توجد بيانات عملاء أو أسرار في اللقطات.
-- [ ] توجد 4–6 لقطات حقيقية أو العدد الملائم للأداة، وفيديو 60–120 ثانية، وروابط تعمل. تُلتقط الأدلة من إصدار معروف.
-- [ ] README يوضح المزايا الفعلية، طريقة التشغيل، الرسم المعماري، القيود، وروابط الاختبارات والديمو.
-- [ ] Case study قصيرة تشرح قرارين هندسيين، بديلًا جرى استبعاده ولماذا، وفشلًا حقيقيًا وكيف يعالجه النظام.
-- [ ] صفحة Release تسجل SHA وCI والمتطلبات والقيود. لا تُنشر أرقام أداء دون workload وعتاد وطريقة قياس.
-- [ ] حُسمت سياسة الترخيص ونسب المساهمات قبل التوزيع؛ لا نختار ترخيصًا تلقائيًا لجميع المستودعات.
+1. [ ] Run a project-owned fixture that fails at a chosen browser and viewport size. Check that its name and failure match in the logs and UI.
+2. [ ] Show the screenshot, trace, console output, and network log from that run. Verify that another workspace cannot access them.
+3. [ ] Record the commit SHA, browser version, run ID, and trace viewing instructions.
 
-الديمو المستضاف مفيد وليس شرطًا لكل أداة. أدوات تنفيذ الكود وإدارة الخوادم والأسرار يمكن عرضها بفيديو وبيئة معزولة وتجربة محلية قابلة للإعادة. لا تفتح تنفيذًا عامًا غير محدود لمجرد وجود رابط بورتفيليو.
+## Portfolio acceptance checklist
 
-## التنفيذ والمتابعة
+- [ ] Another person can reproduce the primary workflow from a clean checkout using the README and test credentials or fixtures.
+- [ ] The demo tells one complete story with a defined user, problem, and saved result.
+- [ ] Tests cover the main flow, an important failure, and access boundaries when multiple accounts are involved.
+- [ ] Demo data is labeled synthetic and reproducible. Review screenshots and recordings for secrets and customer data.
+- [ ] Include four to six real screenshots where appropriate, a 60–120 second recording, and working links. Identify the revision used for capture.
+- [ ] The README describes implemented capabilities, setup, architecture, limits, tests, and the demo.
+- [ ] A short case study explains two engineering decisions, a considered alternative, and how the system handles an actual failure.
+- [ ] Release evidence records the commit SHA, CI, prerequisites, and limits. Performance data includes workload, hardware, and method.
+- [ ] Licensing and contributor attribution are settled before distribution. Choose the license for each repository individually.
 
-- حوّل P0 إلى مهام صغيرة، لكل منها سلوك متوقع ومعيار قبول واختبار مناسب.
-- ابدأ بتأكيد الموجود؛ عدّل هذه الخطة عندما يغلق بند بدليل مرتبط بcommit أو PR.
-- سجّل مصدر بيانات الديمو، والـSHA الذي التُقطت منه الأدلة، وحدود التجربة الفعلية.
-- راجع الفرق النهائي وانتظر نجاح الفحوص المطلوبة لنفس SHA قبل الدمج، مع احترام حماية الفرع.
-- إذا كان التعديل وثائق فقط ولا يوجد فحص ينطبق عليه، سجّل التحقق من محتواها وروابطها؛ لا تسجل اختبارات تشغيل لم تُنفّذ.
-- لا تُنشر أرقام أداء أو ادعاءات أمان أو جاهزية إنتاج بلا دليل مناسب.
+A hosted demo is optional. Code execution, server administration, and secret management can be demonstrated through a recording and a reproducible isolated environment. Keep public demo access scoped to the activities it needs.
+
+## Implementation and follow-up
+
+- Break P0 into tasks with expected behavior, acceptance criteria, and a suitable test.
+- Verify existing functionality first. Update this plan when evidence tied to a commit or PR closes a milestone.
+- Record the fixture source, the revision used for evidence, and the tested limits.
+- Review the final diff and verify required checks for its exact SHA before merging. Follow branch protection.
+- For documentation-only changes with no applicable workflow, verify content and links and record the checks actually performed.
+- Tie performance, security, and readiness claims to supporting evidence.
+
+## Additional references
+
+- [ROADMAP.md](docs/ROADMAP.md)
