@@ -108,6 +108,23 @@ def test_archive_file_directory_collision():
         )
 
 
+@pytest.mark.parametrize(
+    "path", ["tests/../package.json", "tests/./test.ts", "tests//test.ts", "tests\\\\test.ts"]
+)
+def test_archive_alias_paths_cannot_shadow_existing_files(path):
+    with pytest.raises(ValueError):
+        validate_bundle(
+            archive(
+                {
+                    "package.json": "{}",
+                    "package-lock.json": "{}",
+                    "tests/test.ts": "test()",
+                    path: "shadow",
+                }
+            )
+        )
+
+
 def test_bundle_requires_lockfile_before_enqueue():
     with pytest.raises(ValueError, match="package-lock"):
         validate_bundle(archive({"package.json": "{}", "tests/test.ts": "test()"}))
