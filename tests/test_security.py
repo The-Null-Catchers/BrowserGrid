@@ -114,12 +114,14 @@ def test_archive_file_directory_collision():
 def test_archive_alias_paths_cannot_shadow_existing_files(path):
     with pytest.raises(ValueError):
         validate_bundle(
-            archive({
-                "package.json": "{}",
-                "package-lock.json": "{}",
-                "tests/test.ts": "test()",
-                path: "shadow",
-            })
+            archive(
+                {
+                    "package.json": "{}",
+                    "package-lock.json": "{}",
+                    "tests/test.ts": "test()",
+                    path: "shadow",
+                }
+            )
         )
 
 
